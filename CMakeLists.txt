@@ -6,10 +6,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Adds all .cpp files
-add_executable (publisher src/publisher.cpp)
-add_executable (subscriber src/subscriber.cpp)
-
-# Add include directory
-target_include_directories(publisher PRIVATE ./)
-target_include_directories(subscriber PRIVATE ./)
+# Add all subdirectories in ./examples that have a CMakeLists.txt
+file(GLOB EXAMPLES_SUBDIRS RELATIVE ${CMAKE_SOURCE_DIR}/examples ${CMAKE_SOURCE_DIR}/examples/*)
+foreach(subdir ${EXAMPLES_SUBDIRS})
+    if(EXISTS "${CMAKE_SOURCE_DIR}/examples/${subdir}/CMakeLists.txt")
+        add_subdirectory(examples/${subdir})
+    endif()
+endforeach()

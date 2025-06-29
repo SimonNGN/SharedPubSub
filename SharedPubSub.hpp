@@ -256,6 +256,11 @@ class Subscriber : public SharedMemoryManager<T> {
             return true;
         }
 
+        // returns raw value pointer to use it wherever someone wants.
+        T* rawValue(){
+            return &(topic->value);
+        }
+        
         // return a copy of the current stored value
         remove_atomic_t<T> readValue(){
             return topic->getValue();
