@@ -17,3 +17,8 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 
 ## Examples
 ### 
+
+## How to build examples
+In the main folder :
+- `mkdir build && cd build`
+- `cmake .. && make`
