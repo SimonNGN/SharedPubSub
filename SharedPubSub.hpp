@@ -12,6 +12,8 @@
     Subscribers can either:
     - Receive values through a queue with notification (for event-driven or ordered consumption).
     - Directly access the latest value in shared memory (for low-latency polling)
+
+    License at the bottom of the file.
 */
 
 #pragma once
@@ -30,8 +32,6 @@
 #include <type_traits>
 
 /*
-    License terms at the bottom of the file.
-
     Main functions to use the library :
 
     Publisher
