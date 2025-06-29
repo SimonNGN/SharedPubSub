@@ -6,7 +6,7 @@ using namespace std;
 int main(){
     // Create the publisher
     // Raw value is atomic and thread safe
-    shps::Publisher<atomic<int>> publisher("simplePublish");
+    shps::Publisher<atomic<int>> publisher("PubSub");
 
     // Value that we will copy to the publisher's data
     int value = 0;

@@ -4,7 +4,7 @@
 using namespace std;
 
 int main(){
-    shps::Subscriber<atomic<int>> subscriber("DirectAccess", "DirectAccessSubscriber1",true);
+    shps::Subscriber<atomic<int>> subscriber("DirectAccess", "DirectAccessSubscriber1");
     int value = 0;
     while(1){
         value = subscriber.readValue();

@@ -4,7 +4,7 @@
 using namespace std;
 
 int main(){
-    shps::Subscriber<atomic<int>> subscriber("simplePublish", "simplePublishSubscriber1",true);
+    shps::Subscriber<atomic<int>> subscriber("PubSub", "PubSubSubscriber1",true);
     optional<int> value = nullopt;
     while(1){
         value = subscriber.readWait();
