@@ -728,6 +728,7 @@ class NotifiedQueue{
 
 };
 
+// Snippet from "C++ High Performance" book's Lock-free queue
 template <class T, size_t N>
 class LockFreeQueue{
     std::array<T,N> buffer_{};
