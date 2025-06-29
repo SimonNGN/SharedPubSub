@@ -1,7 +1,7 @@
 /*
     Author: Simon Nguyen
     License: MIT
-    Repository: 
+    Repository: https://github.com/SimonNGN/SharedPubSub
     Created: 2025
 
     Shared Memory Publisher-Subscriber Library
