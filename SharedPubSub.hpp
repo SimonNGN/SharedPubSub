@@ -88,6 +88,12 @@ struct remove_atomic<std::atomic<U>> { using type = U; };   // Utility type 2 to
 template<typename T>
 using remove_atomic_t = typename remove_atomic<T>::type;    // Utility type 3 to deduce non-atomic
 
+template<typename T>
+struct is_std_atomic : std::false_type {};                  // Utility type 1 to detect atomic type            
+
+template<typename U>
+struct is_std_atomic<std::atomic<U>> : std::true_type {};   // Utility type 2 to detect atomic type 
+
 /*
     Publisher
     -----------
@@ -375,8 +381,7 @@ class Topic{
 
         // Read the current stored value
         remove_atomic_t<T> getValue(){
-            // If T is atomic, else do normal. Compile-time if/else.
-            if constexpr (std::is_same_v<T, std::atomic<typename T::value_type>>) { 
+            if constexpr (is_std_atomic<T>::value) {
                 return value.load();
             } else {
                 return value;
@@ -521,8 +526,6 @@ class SharedMemoryManager{
 */
 template<typename T>
 class NotifiedQueue{
-    static_assert(std::is_trivially_copyable<T>::value, "The queue data type must be trivially copyable");
-
     public:
         LockFreeQueue<T,2048> queue; // size 2048 is arbitrary
 
