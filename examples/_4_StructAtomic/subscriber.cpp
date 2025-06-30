@@ -46,12 +46,13 @@ int main(){
             endl;
         }
         else{
-            /*--------- Example 2 : Nothing was in queue, it was a normal notify, read the current value (thread safe)---------*/
-            CustomStruct customStruct2 = subscriber.readValue();
+            /*--------- Example 2 : Nothing was in queue, it was a normal notify, read the current value ---------*/
+            // Thread safe because all members are atomic
+            CustomStruct* customStruct2 = subscriber.rawValue();
             cout << "SUBSCRIBER : " << dec << 
-            customStruct2.value1 << ", " <<
-            customStruct2.value2 << ", " <<
-            customStruct2.value3 << " CURRENT VALUE" <<
+            customStruct2->value1 << ", " <<
+            customStruct2->value2 << ", " <<
+            customStruct2->value3 << " CURRENT VALUE" <<
             endl;
         }
     }

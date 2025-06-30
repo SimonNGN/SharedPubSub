@@ -48,9 +48,10 @@ int main(){
             customClass1.value().printValues();
         }
         else{
-            /*--------- Example 2 : Nothing was in queue, it was a normal notify, read the current value (thread safe) ---------*/
-            CustomClass customClass2 = subscriber.readValue();
-            customClass2.printValues();
+            /*--------- Example 2 : Nothing was in queue, it was a normal notify, read the current value ---------*/
+            // Thread safe because all members are atomic
+            CustomClass* customClass2 = subscriber.rawValue();
+            customClass2->printValues();
         }
     }
     return 0;
