@@ -12,11 +12,15 @@ int main(){
     int value = 0;
     
     while(1){
-        // Increment the value
-        value++;
-        // Publish. Will set the value, push to subscribers' queue and notify
-        publisher.setValue(value);
-        cout << "PUBLISHER : " << dec << value << endl;
+        /*--------- Method 1 : Set Value  ---------*/
+        publisher.setValue(++value);
+        cout << "PUBLISHER : " << dec << value << " setValue()"<< endl;
+        this_thread::sleep_for(1s);
+
+        /*--------- Method 2 : Get a pointer to the value and change it  ---------*/
+        atomic<int>* rawValue = publisher.rawValue();
+        rawValue->store(++value);
+        cout << "PUBLISHER : " << dec << publisher.readValue() << " Direct access"<< endl;
         this_thread::sleep_for(1s);
     }
     return 0;
