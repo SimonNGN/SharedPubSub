@@ -4,8 +4,10 @@
 using namespace std;
 
 int main(){
+
     shps::Subscriber<atomic<int>> subscriber("DirectAccess", "DirectAccessSubscriber1");
     int value = 0;
+    
     while(1){
         /*--------- Method 1 : Read Value  ---------*/
         value = subscriber.readValue();

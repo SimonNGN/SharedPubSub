@@ -4,11 +4,8 @@
 using namespace std;
 
 int main(){
-    // Create the publisher
-    // Raw value is atomic and thread safe
+    
     shps::Publisher<atomic<int>> publisher("DirectAccess");
-
-    // Value that we will copy to the publisher's data
     int value = 0;
     
     while(1){
