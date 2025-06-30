@@ -5,7 +5,7 @@ using namespace std;
 
 int main(){
     
-    shps::Publisher<atomic<int>> publisher("PubSub");
+    shps::Publisher<int> publisher("PubSub");
     int value = 0;
     
     while(1){
