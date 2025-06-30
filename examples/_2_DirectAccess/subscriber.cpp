@@ -9,12 +9,12 @@ int main(){
     int value = 0;
     
     while(1){
-        /*--------- Method 1 : Read Value  ---------*/
+        /*--------- Example 1 : Read Value  ---------*/
         value = subscriber.readValue();
         cout << "SUBSCRIBER : " << dec << value  << " readValue()" << endl;
         this_thread::sleep_for(1s);
 
-        /*--------- Method 2 : Get a pointer to the value and read it  ---------*/
+        /*--------- Example 2 : Get a pointer to the value and read it  ---------*/
         atomic<int>* rawValue = subscriber.rawValue();
         cout << "SUBSCRIBER : " << dec << rawValue->load() << " Direct access" << endl;
         this_thread::sleep_for(1s);

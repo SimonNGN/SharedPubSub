@@ -9,13 +9,13 @@ int main(){
     int value = 0;
     
     while(1){
-        /*--------- Method 1 : Publish ---------*/
+        /*--------- Example 1 : Publish ---------*/
         publisher.publish(++value);
         
         cout << "PUBLISHER : " << dec << value << " Normal publish"<< endl;
         this_thread::sleep_for(1s);
 
-        /*--------- Method 2 : Publish only on change ---------*/
+        /*--------- Example 2 : Publish only on change ---------*/
         
         for(int i=0;i<100;++i){
             publisher.publishOnChange(value);
@@ -25,7 +25,7 @@ int main(){
         cout << "PUBLISHER : " << dec << value << " Published on change" << endl;
         this_thread::sleep_for(1s);
 
-        /*--------- Method 3 : Push multiple in queue and notify after ---------*/
+        /*--------- Example 3 : Push multiple in queue and notify after ---------*/
         
         for(int i=0;i<10;++i){
             publisher.setValueAndPush(++value);

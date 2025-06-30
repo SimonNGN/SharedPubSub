@@ -79,6 +79,7 @@ class NotifiedQueue;
 template <class T, size_t N>    // Lock free Queue
 class LockFreeQueue;
 
+// Utility types
 template<typename T>
 struct remove_atomic { using type = T; };                   // Utility type 1 to deduce non-atomic
 
@@ -162,10 +163,7 @@ class Publisher : public SharedMemoryManager<T> {
         template<typename U>
         void setValueAndPush(U&& value){
             setValue(value);
-            updateSubscriberQueues();
-            for(int i=0;i<subscriberQueueCount;++i){
-                subscriberQueues[i]->push(value);
-            }
+            push(value);
         };
 
         // Set the topic's value and push it into subsciber's queue if changed

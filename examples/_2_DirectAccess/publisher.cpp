@@ -9,12 +9,12 @@ int main(){
     int value = 0;
     
     while(1){
-        /*--------- Method 1 : Set Value  ---------*/
+        /*--------- Example 1 : Set Value  ---------*/
         publisher.setValue(++value);
         cout << "PUBLISHER : " << dec << value << " setValue()"<< endl;
         this_thread::sleep_for(1s);
 
-        /*--------- Method 2 : Get a pointer to the value and change it  ---------*/
+        /*--------- Example 2 : Get a pointer to the value and change it  ---------*/
         atomic<int>* rawValue = publisher.rawValue();
         rawValue->store(++value);
         cout << "PUBLISHER : " << dec << publisher.readValue() << " Direct access"<< endl;
