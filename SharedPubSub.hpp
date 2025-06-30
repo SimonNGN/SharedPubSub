@@ -147,6 +147,16 @@ class Publisher : public SharedMemoryManager<T> {
             }
         };
 
+        // Push a value into each subscriber's queue, without notification.
+        // Throws runtime_error if there's a new subscriber and it fails to open the the shared memory
+        template<typename U>
+        void push(U&& value){
+            updateSubscriberQueues();
+            for(int i=0;i<subscriberQueueCount;++i){
+                subscriberQueues[i]->push(value);
+            }
+        };
+
         // Set the topic's value and push it into subsciber's queue if changed
         template<typename U>
         void publishOnChange(U&& value){
