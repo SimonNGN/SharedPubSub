@@ -32,7 +32,8 @@ int main(){
     auto nextLoop = chrono::steady_clock::now();
 
     while(1){
-        cout << value->load() << endl; //cout is not real-time safe, but it's just to print an example
+        //cout is not real-time safe, but it's just to print an example
+        cout << value->load() << endl; 
         nextLoop+=loopTime-wakeBefore;
         this_thread::sleep_until(nextLoop);
         while(chrono::steady_clock::now()<nextLoop){;}
