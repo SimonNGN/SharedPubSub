@@ -15,8 +15,14 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 - Being able to read data at any time, as opposed to MQTT which is only event driven. Ideal for multiple process that don't need the data at the same time or their processing time are different.
 - Receive data in order to make sure no data changes are missed.
 
-## Examples
-### 
+## Requirements
+- A POSIX environment (Most Linux distros)
+## Functions
+
+### Publisher :
+|Function|Description|Usecase
+|---|---|---|
+|`publish()`|Set current value<br>Push value to subscribers' queue<br>Notify subscribers|set and send values to subscribers| 
 
 ## How to build examples
 In the main folder :
@@ -24,3 +30,8 @@ In the main folder :
 - `cmake .. && make`
 
 Examples will be in their respective folders.
+
+## Wish-list
+- Give cross-compatible example with Python
+- Give cross-compatible example with Javascript
+- Make it compatible with Windows and Mac
