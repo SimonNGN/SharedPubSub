@@ -288,6 +288,7 @@ class Subscriber : public SharedMemoryManager<T> {
         // Wait indefinitely for a new value signal and pop the latest value
         // Returns nullopt if no value was in the queue.
         std::optional<remove_atomic_t<T>> readWait(){
+            if(notifiedQueue == nullptr){return nullopt;}
             return notifiedQueue->popWait();
         }
 
@@ -297,17 +298,20 @@ class Subscriber : public SharedMemoryManager<T> {
         // Returns nullopt if no value was in the queue.
         template <typename Rep, typename Period>
         std::optional<T> readWait(std::chrono::duration<Rep, Period> duration){
+            if(notifiedQueue == nullptr){return nullopt;}
             return notifiedQueue->popWait(duration);
         }
 
         // Wait indefinitely for a notification
         void waitForNotify(){
+            if(notifiedQueue == nullptr){return;}
             notifiedQueue->waitForNotify();
         }
 
         // Wait for a signal for a set amount of time (Ex. Value : 1s,500ms,500us,500ns)
         template <typename Rep, typename Period>
         void waitForNotify(std::chrono::duration<Rep, Period> duration){
+            if(notifiedQueue == nullptr){return;}
             notifiedQueue->waitForNotify(duration);
         }
 
