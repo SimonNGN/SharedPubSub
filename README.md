@@ -53,10 +53,10 @@ In the main folder :
 Examples will be in their respective folders.
 
 ## Pub/Sub Example
-Note : Pub/Sub is not the only mechanism, please look at the `examples` folder.
+Note : This example is only one of many mechanism. Please look at the `examples` folder.
 
 ### Publisher
-```
+```cpp
 #include <iostream>
 #include <thread>
 #include "SharedPubSub.hpp"
@@ -77,7 +77,7 @@ int main(){
 }
 ```
 ### Subscriber
-```
+```cpp
 #include <iostream>
 #include <thread>
 #include "SharedPubSub.hpp"
@@ -91,7 +91,7 @@ int main(){
     while(1){
 
         value = subscriber.readWait();
-        
+
         // Verify if the queue had a value on notification.
         if(value.has_value()){
             cout << "SUBSCRIBER : " << dec << value.value() << endl;
