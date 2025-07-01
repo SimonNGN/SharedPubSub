@@ -54,6 +54,56 @@ Examples will be in their respective folders.
 
 ## Pub/Sub Example
 Note : Pub/Sub is not the only mechanism, please look at the `examples` folder.
+
+### Publisher
+```
+#include <iostream>
+#include <thread>
+#include "SharedPubSub.hpp"
+using namespace std;
+
+int main(){
+    
+    shps::Publisher<int> publisher("PubSub");
+    int value = 0;
+    
+    while(1){
+        publisher.publish(++value);
+        
+        cout << "PUBLISHER : " << dec << value << " Normal publish"<< endl;
+        this_thread::sleep_for(1s);
+    }
+    return 0;
+}
+```
+### Subscriber
+```
+#include <iostream>
+#include <thread>
+#include "SharedPubSub.hpp"
+using namespace std;
+
+int main(){
+
+    shps::Subscriber<int> subscriber("PubSub", "PubSubSubscriber1",true);
+    optional<int> value = nullopt;
+
+    while(1){
+
+        value = subscriber.readWait();
+        
+        // Verify if the queue had a value on notification.
+        if(value.has_value()){
+            cout << "SUBSCRIBER : " << dec << value.value() << endl;
+        }
+        else{
+            cout << "SUBSCRIBER : No value in queue" << endl;
+        }
+        
+    }
+    return 0;
+}
+```
 ## Wish-list
 - Give cross-compatible example with Python
 - Give cross-compatible example with Javascript
