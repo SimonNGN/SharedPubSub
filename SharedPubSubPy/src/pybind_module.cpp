@@ -24,8 +24,8 @@ template<typename T>
 py::object subscriber_read_wait(shps::Subscriber<T>& sub) {
     py::gil_scoped_release release; // Release the GIL here
     auto val = sub.readWait();
-    if (val.has_value())
-        return py::cast(*val);
+    if (val.has_value()){}
+        return py::cast(val.value());
     return py::none();
 }
 

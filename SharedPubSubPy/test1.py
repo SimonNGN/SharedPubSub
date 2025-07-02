@@ -2,18 +2,18 @@ from SharedPubSubPy import *
 import threading
 import time
 
-pub = PublisherFixedString("PYTHON")
+pub = Publisher_FixedString2048("PYTHON")
 
 i = 0
 
 while 1:
-    payload = FixedString()
-    payload = "Hello World!"
+    payload = FixedString2048()
+    payload.set("HELLO WORLD " +str(i))
     pub.publish(payload)
     i+=1
     time.sleep(1)
     
-    payload = "Hello World!"("Hello World!")
+    payload.set("Hello World!" +str(i) + "AGAIN")
     pub.publish(payload)
     i+=1
     time.sleep(1)

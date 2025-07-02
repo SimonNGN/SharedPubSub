@@ -1,3 +1,0 @@
-/home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/build/CMakeFiles/SharedPubSubPy.dir
-/home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/build/CMakeFiles/edit_cache.dir
-/home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/build/CMakeFiles/rebuild_cache.dir
