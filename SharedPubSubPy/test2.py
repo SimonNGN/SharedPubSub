@@ -7,7 +7,7 @@ sub = Subscriber_FixedString2048("PYTHON","PYTHONSUB",True)
 while 1:
     time.sleep(1)
     value = sub.readWait()
-    if value:
+    if value is not None:
         print(value.get())
     else:    
-        print(sub.readWait())
+        print("NO VALUE")

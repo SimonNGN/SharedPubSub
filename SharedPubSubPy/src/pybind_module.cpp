@@ -30,12 +30,15 @@ void publisher_publish_on_change(shps::Publisher<T>& pub, const remove_atomic_t<
 template<typename T>
 T subscriber_read_value(shps::Subscriber<T>& sub) { return sub.readValue(); }
 template<typename T>
-py::object subscriber_read_wait(shps::Subscriber<T>& sub) {
+std::optional<remove_atomic_t<T>> subscriber_read_wait(shps::Subscriber<T>& sub) {
     py::gil_scoped_release release; // Release the GIL here
-    auto val = sub.readWait();
-    if (val.has_value()){}
-        return py::cast(val.value());
-    return py::none();
+    return sub.readWait();
+    //optional<remove_atomic_t<T>> val = sub.readWait();
+    //if (val.has_value()){
+    //    std::cout << "HAS VALUE " << hex << val.value() << std::endl;
+    //    return py::cast(val.value());
+    //}
+    //return py::none();
 }
 
 template<typename T>
@@ -52,6 +55,7 @@ void declare_pubsub(py::module_ &m, const char* pubname, const char* subname) {
 
     py::class_<shps::Subscriber<T>>(m, subname)
         .def(py::init<const std::string&, const std::string&, bool>())
+        .def("subscribe", &shps::Subscriber<T>::subscribe)
         .def("readValue", &subscriber_read_value<T>)
         .def("readWait", &subscriber_read_wait<T>)
         .def("rawValue", &shps::Subscriber<T>::rawValue, py::return_value_policy::reference);
