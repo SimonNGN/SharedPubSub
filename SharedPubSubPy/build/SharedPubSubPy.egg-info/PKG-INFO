@@ -1,5 +1,0 @@
-Metadata-Version: 2.4
-Name: SharedPubSubPy
-Version: 0.1.0
-Summary: Pybind11 bindings for SharedPubSub C++ library
-Author-email: Your Name <your@email.com>

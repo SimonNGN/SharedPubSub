@@ -3,7 +3,8 @@
 
 CMakeFiles/SharedPubSubPy.dir/src/pybind_module.cpp.o
  /home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/src/pybind_module.cpp
- /home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/src/SharedPubSub.hpp
+ /home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSub.hpp
+ /home/foxtrot/Documents/Projects/SharedPubSub/util/FixedString.h
  /usr/include/alloca.h
  /usr/include/asm-generic/bitsperlong.h
  /usr/include/asm-generic/errno-base.h

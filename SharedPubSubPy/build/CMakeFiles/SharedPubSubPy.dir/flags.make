@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DSharedPubSubPy_EXPORTS
 
-CXX_INCLUDES = -isystem /usr/include/python3.13
+CXX_INCLUDES = -I/home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/.. -I/home/foxtrot/Documents/Projects/SharedPubSub/SharedPubSubPy/../util -isystem /usr/include/python3.13
 
 CXX_FLAGS = -std=gnu++20 -fPIC -fvisibility=hidden -flto -fno-fat-lto-objects
 

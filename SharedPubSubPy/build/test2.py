@@ -8,12 +8,12 @@ i = 0
 
 while 1:
     payload = FixedString()
-    payload.set("Hello World!")
+    payload = "Hello World!"
     pub.publish(payload)
     i+=1
     time.sleep(1)
     
-    payload.set("Hello World! WITH MORE")
+    payload = "Hello World!"("Hello World!")
     pub.publish(payload)
     i+=1
     time.sleep(1)

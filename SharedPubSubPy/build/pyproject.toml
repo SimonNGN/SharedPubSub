@@ -1,9 +1,0 @@
-[build-system]
-requires = ["pybind11", "setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "SharedPubSubPy"
-version = "0.1.0"
-description = "Pybind11 bindings for SharedPubSub C++ library"
-authors = [{ name = "Your Name", email = "your@email.com" }]

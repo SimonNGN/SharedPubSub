@@ -6,8 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include_directories(${CMAKE_SOURCE_DIR}/util)
+
 # Add all subdirectories in ./examples that have a CMakeLists.txt
 file(GLOB EXAMPLES_SUBDIRS RELATIVE ${CMAKE_SOURCE_DIR}/examples ${CMAKE_SOURCE_DIR}/examples/*)
+
 foreach(subdir ${EXAMPLES_SUBDIRS})
     if(EXISTS "${CMAKE_SOURCE_DIR}/examples/${subdir}/CMakeLists.txt")
         add_subdirectory(examples/${subdir})

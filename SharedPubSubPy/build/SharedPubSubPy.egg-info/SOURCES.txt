@@ -1,5 +1,0 @@
-pyproject.toml
-SharedPubSubPy.egg-info/PKG-INFO
-SharedPubSubPy.egg-info/SOURCES.txt
-SharedPubSubPy.egg-info/dependency_links.txt
-SharedPubSubPy.egg-info/top_level.txt

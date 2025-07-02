@@ -128,7 +128,11 @@ class Publisher : public SharedMemoryManager<T> {
         // Set the topic's value.
         template<typename U>
         void setValue(U&& value){
-            topic->value = std::forward<U>(value);
+            if constexpr (is_std_atomic<T>::value) {
+                topic->value.store(value);
+            } else {
+                topic->value = std::forward<U>(value);
+            }
             updateValueTemp();
         };
 
