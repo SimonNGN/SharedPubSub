@@ -7,17 +7,26 @@ using namespace std;
 
 namespace py = pybind11;
 
+template<typename T>
+struct remove_atomic { using type = T; };                   // Utility type 1 to deduce non-atomic
+
+template<typename U>
+struct remove_atomic<std::atomic<U>> { using type = U; };   // Utility type 2 to deduce non-atomic
+
+template<typename T>
+using remove_atomic_t = typename remove_atomic<T>::type;    // Utility type 3 to deduce non-atomic
+
 // Helper wrappers for overloaded/template methods
 template<typename T>
-void publisher_set_value(shps::Publisher<T>& pub, const T& value) { pub.setValue(value); }
+void publisher_set_value(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValue(value); }
 template<typename T>
-void publisher_publish(shps::Publisher<T>& pub, const T& value) { pub.publish(value); }
+void publisher_publish(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.publish(value); }
 template<typename T>
-void publisher_push(shps::Publisher<T>& pub, const T& value) { pub.push(value); }
+void publisher_push(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.push(value); }
 template<typename T>
-void publisher_setValueAndPush(shps::Publisher<T>& pub, const T& value) { pub.setValueAndPush(value); }
+void publisher_setValueAndPush(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValueAndPush(value); }
 template<typename T>
-void publisher_publish_on_change(shps::Publisher<T>& pub, const T& value) { pub.publishOnChange(value); }
+void publisher_publish_on_change(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.publishOnChange(value); }
 template<typename T>
 T subscriber_read_value(shps::Subscriber<T>& sub) { return sub.readValue(); }
 template<typename T>
