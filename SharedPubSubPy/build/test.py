@@ -4,11 +4,11 @@ import time
 
 def test():
 
-    sub = SubscriberString1024("PYTHON","PYTHONSUB",True)
+    sub = SubscriberFixedString("PYTHON","PYTHONSUB",True)
     while 1:
         value = sub.readValue()
-        print(value.getString())
-        print(value.getSize())
+        print(value.get())
+        print(value.size())
         time.sleep(1)
 
 i = 0
