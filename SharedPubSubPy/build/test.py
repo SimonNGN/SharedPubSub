@@ -6,7 +6,9 @@ def test():
 
     sub = SubscriberString1024("PYTHON","PYTHONSUB",True)
     while 1:
-        print(sub.readValue().data[0])
+        value = sub.readValue()
+        print(value.getString())
+        print(value.getSize())
         time.sleep(1)
 
 i = 0

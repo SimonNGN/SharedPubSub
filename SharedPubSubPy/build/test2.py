@@ -8,7 +8,11 @@ i = 0
 
 while 1:
     payload = SharedString1024()
-    payload.value = "String Value " + str(i)
+    payload.setString("Hello World!")
+    pub.publish(payload)
+    i+=1
+    time.sleep(1)
+    payload.setString("Hello World!")
     pub.publish(payload)
     i+=1
     time.sleep(1)

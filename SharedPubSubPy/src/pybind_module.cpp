@@ -2,22 +2,61 @@
 #include <pybind11/stl.h>
 #include "SharedPubSub.hpp"
 
-struct SharedString1024 {
-    char data[1024];
+using namespace std;
 
-    SharedString1024() { data[0] = '\0'; }
+// This class is not thread safe, reading in a queue is recommended
+template<size_t N>
+class FixedString {
+    public:
+        char data[N] = {'\0'};
+        size_t size_ = 0;
 
-    SharedString1024(const char* src) {
-        strncpy(data, src, 1023);
-        data[1023] = '\0';
+    FixedString(){}
+
+    FixedString(string str){
+        size_ = snprintf(data,sizeof(data), "%s",str.c_str());
     }
 
-    bool operator==(const SharedString1024& other) const {
-        return strncmp(data, other.data, 1024) == 0;
+    string get() const {
+        return string(data);
     }
-    bool operator!=(const SharedString1024& other) const {
-        return !(*this == other);
+
+    void set(string str){
+        size_ = snprintf(data,sizeof(data), "%s",str.c_str());
     }
+
+    size_t size(){
+        return size_;
+    }
+
+    bool operator==(const FixedString<N>& other) const {
+        return strncmp(data, other.data, N) == 0;
+    }
+    bool operator==(const string& str) const {
+        return strncmp(data, str, N) == 0;
+    }
+
+    bool operator!=(const FixedString<N>& other) const {
+        return strncmp(data, other.data, N) != 0;
+    }
+    bool operator!=(const string& str) const {
+        return strncmp(data, str, N) != 0;
+    }
+
+    FixedString<N>& operator=(const FixedString<N>& other) {
+        if (this != &other) {
+            set(other.get());
+        }
+        return *this;
+    }
+
+    FixedString<N>& operator=(const string& str) {
+        if (this != str) {
+            set(str);
+        }
+        return *this;
+    }
+    ~FixedString() = default;
 };
 
 namespace py = pybind11;
@@ -71,16 +110,12 @@ PYBIND11_MODULE(SharedPubSubPy, m) {
     declare_pubsub<double>(m, "PublisherDouble", "SubscriberDouble");
 
     
-    py::class_<SharedString1024>(m, "SharedString1024")
+    py::class_<FixedString<2048>>(m, "FixedString")
         .def(py::init<>())
-        .def(py::init<const char*>())
-        .def_property("value",
-            [](const SharedString1024& s) { return std::string(s.data); },
-            [](SharedString1024& s, const std::string& v) {
-                strncpy(s.data, v.c_str(), 1023);
-                s.data[1023] = '\0';
-            }
-        );
+        .def(py::init<string>())
+        .def("get", &FixedString<2048>::get)
+        .def("set", &FixedString<2048>::set)
+        .def("size", &FixedString<2048>::size);
 
-    declare_pubsub<SharedString1024>(m, "PublisherString1024", "SubscriberString1024");
+    declare_pubsub<FixedString<2048>>(m, "PublisherFixedString", "SubscriberFixedString");
 }
