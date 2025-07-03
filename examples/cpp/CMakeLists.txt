@@ -9,16 +9,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(${CMAKE_SOURCE_DIR}/../../util)
 include_directories(${CMAKE_SOURCE_DIR}/../..)
 
-# Add all subdirectories in ./examples that have a CMakeLists.txt
-#file(GLOB EXAMPLES_SUBDIRS RELATIVE ${CMAKE_SOURCE_DIR}/ ${CMAKE_SOURCE_DIR}/*)#
-
-#foreach(subdir ${EXAMPLES_SUBDIRS})
-#    if(EXISTS "${CMAKE_SOURCE_DIR}/${subdir}/CMakeLists.txt")
-#        add_subdirectory(${subdir})
-#    endif()
-#endforeach()
-
-# In your main CMakeLists.txt
 file(GLOB EXAMPLE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/_*")
 
 foreach(EXAMPLE_DIR ${EXAMPLE_DIRS})
