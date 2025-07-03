@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-setup.py
-SharedPubSubPy.egg-info/PKG-INFO
-SharedPubSubPy.egg-info/SOURCES.txt
-SharedPubSubPy.egg-info/dependency_links.txt
-SharedPubSubPy.egg-info/not-zip-safe
-SharedPubSubPy.egg-info/top_level.txt
-src/pybind_module.cpp

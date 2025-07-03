@@ -11,6 +11,6 @@ include_directories(${Python_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/../)
 include_directories(${CMAKE_SOURCE_DIR}/../util)
 
-pybind11_add_module(SharedPubSubPy src/pybind_module.cpp)
+pybind11_add_module(SharedPubSubPy module.cpp)
 
 target_link_libraries(SharedPubSubPy PRIVATE ${Python_LIBRARIES})

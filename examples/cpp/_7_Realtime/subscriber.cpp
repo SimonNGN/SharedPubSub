@@ -27,16 +27,16 @@ const chrono::microseconds wakeBefore = 500us;
 
 int main(){
 
-    shps::Publisher<atomic<int>> publisher("Realtime");
-    atomic<int>* value = publisher.rawValue();
+    shps::Subscriber<atomic<int>> subscriber("Realtime", "RealtimeSubscriber1");
+    atomic<int>* value = subscriber.rawValue();
     auto nextLoop = chrono::steady_clock::now();
 
     while(1){
-        *value+=1;
+        //cout is not real-time safe, but it's just to print an example
+        cout << value->load() << endl; 
         nextLoop+=loopTime-wakeBefore;
         this_thread::sleep_until(nextLoop);
         while(chrono::steady_clock::now()<nextLoop){;}
     }
-
     return 0;
 }

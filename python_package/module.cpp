@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/iostream.h>
 #include "SharedPubSub.hpp"
 #include "FixedString.h"
 
@@ -31,14 +32,8 @@ template<typename T>
 T subscriber_read_value(shps::Subscriber<T>& sub) { return sub.readValue(); }
 template<typename T>
 std::optional<remove_atomic_t<T>> subscriber_read_wait(shps::Subscriber<T>& sub) {
-    py::gil_scoped_release release; // Release the GIL here
+    py::gil_scoped_release release;
     return sub.readWait();
-    //optional<remove_atomic_t<T>> val = sub.readWait();
-    //if (val.has_value()){
-    //    std::cout << "HAS VALUE " << hex << val.value() << std::endl;
-    //    return py::cast(val.value());
-    //}
-    //return py::none();
 }
 
 template<typename T>
