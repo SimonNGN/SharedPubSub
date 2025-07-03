@@ -42,5 +42,5 @@
 
 # build
 build/*
-*/build
+build
 *.egg-info
