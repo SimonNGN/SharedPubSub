@@ -1,0 +1,11 @@
+MANIFEST.in
+README.md
+SharedPubSub.pyi
+module.cpp
+pyproject.toml
+setup.py
+SharedPubSub.egg-info/PKG-INFO
+SharedPubSub.egg-info/SOURCES.txt
+SharedPubSub.egg-info/dependency_links.txt
+SharedPubSub.egg-info/not-zip-safe
+SharedPubSub.egg-info/top_level.txt

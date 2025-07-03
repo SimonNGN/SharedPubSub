@@ -251,7 +251,7 @@ class Subscriber : public SharedMemoryManager<T> {
         // If doSubscribe = True, opens a queue and clears the queue to remove any previous data.
         // Throws runtime_error when shared memory does not work.
         Subscriber(std::string topicName_,std::string subscriberName_,bool doSubscribe = false) : 
-        subscriberName(subscriberName_),topicName(topicName_),SharedMemoryManager<T>(){
+        topicName(topicName_),subscriberName(subscriberName_),SharedMemoryManager<T>(){
             topic = this->openSharedMemoryTopic(topicName_);
             if(topic == nullptr){
                 throw std::runtime_error("Failed to open shared memory topic: " + topicName);
@@ -301,7 +301,7 @@ class Subscriber : public SharedMemoryManager<T> {
         // (Ex. time value : 1s,500ms,500us,500ns)
         // Returns nullopt if no value was in the queue.
         template <typename Rep, typename Period>
-        std::optional<T> readWait(std::chrono::duration<Rep, Period> duration){
+        std::optional<remove_atomic_t<T>> readWait(std::chrono::duration<Rep, Period> duration){
             if(notifiedQueue == nullptr){return std::nullopt;}
             return notifiedQueue->popWait(duration);
         }

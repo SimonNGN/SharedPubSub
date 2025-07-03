@@ -8,6 +8,8 @@ using namespace std;
 
 namespace py = pybind11;
 
+
+// Utility to deduce remove the atomic part of a type
 template<typename T>
 struct remove_atomic { using type = T; };                   // Utility type 1 to deduce non-atomic
 
@@ -17,9 +19,9 @@ struct remove_atomic<std::atomic<U>> { using type = U; };   // Utility type 2 to
 template<typename T>
 using remove_atomic_t = typename remove_atomic<T>::type;    // Utility type 3 to deduce non-atomic
 
-// Helper wrappers for overloaded/template methods
+// Publisher overload, U&& doesn't work here, we need const&
 template<typename T>
-void publisher_set_value(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValue(value); }
+void publisher_setValue(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValue(value); }
 template<typename T>
 void publisher_publish(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.publish(value); }
 template<typename T>
@@ -27,33 +29,62 @@ void publisher_push(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { 
 template<typename T>
 void publisher_setValueAndPush(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValueAndPush(value); }
 template<typename T>
-void publisher_publish_on_change(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.publishOnChange(value); }
+void publisher_publishOnChange(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.publishOnChange(value); }
 template<typename T>
-T subscriber_read_value(shps::Subscriber<T>& sub) { return sub.readValue(); }
+void publisher_setValueAndNotifyOnChange(shps::Publisher<T>& pub, const remove_atomic_t<T>& value) { pub.setValueAndNotifyOnChange(value); }
+
+
+// Subscriber overload, we need to handle timeouts
 template<typename T>
-std::optional<remove_atomic_t<T>> subscriber_read_wait(shps::Subscriber<T>& sub) {
+std::optional<remove_atomic_t<T>> subscriber_readWait(shps::Subscriber<T>& sub) {
     py::gil_scoped_release release;
     return sub.readWait();
 }
 
 template<typename T>
+std::optional<remove_atomic_t<T>> subscriber_readWait_timeout(shps::Subscriber<T>& sub, long long timeout) {
+    py::gil_scoped_release release;
+    return sub.readWait(chrono::milliseconds(timeout));
+}
+
+template<typename T>
+void subscriber_waitForNotify(shps::Subscriber<T>& sub) {
+    py::gil_scoped_release release;
+    sub.waitForNotify();
+    return;
+}
+
+template<typename T>
+void subscriber_waitForNotify_timeout(shps::Subscriber<T>& sub, double timeout) {
+    py::gil_scoped_release release;
+    sub.waitForNotify(chrono::milliseconds(static_cast<long>(timeout)));
+    return;
+}
+
+// Templated class declaration to be able to input any types
+template<typename T>
 void declare_pubsub(py::module_ &m, const char* pubname, const char* subname) {
     py::class_<shps::Publisher<T>>(m, pubname)
         .def(py::init<const std::string&>())
         .def("rawValue", &shps::Publisher<T>::rawValue, py::return_value_policy::reference)
-        .def("setValue", &publisher_set_value<T>)
+        .def("setValue", &publisher_setValue<T>)
         .def("readValue", &shps::Publisher<T>::readValue)
         .def("publish", &publisher_publish<T>)
         .def("push", &publisher_push<T>)
         .def("setValueAndPush", &publisher_setValueAndPush<T>)
-        .def("publishOnChange", &publisher_publish_on_change<T>);
+        .def("publishOnChange", &publisher_publishOnChange<T>)
+        .def("setValueAndNotifyOnChange", &publisher_setValueAndNotifyOnChange<T>)
+        .def("notifyAll", &shps::Publisher<T>::notifyAll);
 
     py::class_<shps::Subscriber<T>>(m, subname)
         .def(py::init<const std::string&, const std::string&, bool>())
         .def("subscribe", &shps::Subscriber<T>::subscribe)
-        .def("readValue", &subscriber_read_value<T>)
-        .def("readWait", &subscriber_read_wait<T>)
-        .def("rawValue", &shps::Subscriber<T>::rawValue, py::return_value_policy::reference);
+        .def("rawValue", &shps::Subscriber<T>::rawValue, py::return_value_policy::reference)
+        .def("readValue", &shps::Subscriber<T>::readValue)
+        .def("readWait", &subscriber_readWait<T>)
+        .def("readWait", &subscriber_readWait_timeout<T>, py::arg("timeout"))
+        .def("waitForNotify", &subscriber_waitForNotify<T>)
+        .def("waitForNotify", &subscriber_waitForNotify_timeout<T>, py::arg("timeout"));
 }
 
 // Macro to define both normal and atomic class
@@ -61,6 +92,8 @@ void declare_pubsub(py::module_ &m, const char* pubname, const char* subname) {
     declare_pubsub<T>(m, "Publisher_" name, "Subscriber_" name); \
     declare_pubsub<atomic<T>>(m, "Publisher_atomic_" name, "Subscriber_atomic_" name);
 
+
+// Module creation
 PYBIND11_MODULE(SharedPubSubPy, m) {
     // Declare custom type
     py::class_<FixedString<2048>>(m, "FixedString2048")

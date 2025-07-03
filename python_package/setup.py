@@ -4,8 +4,8 @@ import pybind11
 ext_modules = [
     Extension(
         'SharedPubSub',
-        ['src/module.cpp'],
-        include_dirs=[pybind11.get_include(), 'src', '..','../util'],
+        ['module.cpp'],
+        include_dirs=[pybind11.get_include(), '..','../util'],
         language='c++'
     ),
 ]
