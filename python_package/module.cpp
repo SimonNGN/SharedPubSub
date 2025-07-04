@@ -94,7 +94,7 @@ void declare_pubsub(py::module_ &m, const char* pubname, const char* subname) {
 
 
 // Module creation
-PYBIND11_MODULE(SharedPubSubPy, m) {
+PYBIND11_MODULE(SharedPubSub, m) {
     // Declare custom type
     py::class_<FixedString<2048>>(m, "FixedString2048")
         .def(py::init<>())
@@ -105,12 +105,12 @@ PYBIND11_MODULE(SharedPubSubPy, m) {
 
     // Base types
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(bool,      "bool")
+    DECLARE_PUBSUB_NORMAL_AND_ATOMIC(int,       "int")
+    DECLARE_PUBSUB_NORMAL_AND_ATOMIC(uint,      "uint")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(int8_t,    "int8")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(uint8_t,   "uint8")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(int16_t,   "int16")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(uint16_t,  "uint16")
-    DECLARE_PUBSUB_NORMAL_AND_ATOMIC(int32_t,   "int32")
-    DECLARE_PUBSUB_NORMAL_AND_ATOMIC(uint32_t,  "uint32")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(int64_t,   "int64")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(uint64_t,  "uint64")
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(float,     "float")
