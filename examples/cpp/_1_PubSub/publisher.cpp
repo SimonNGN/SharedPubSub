@@ -12,7 +12,7 @@ int main(){
         /*--------- Example 1 : Publish ---------*/
         publisher.publish(++value);
         
-        cout << "PUBLISHER : " << dec << value << " Normal publish"<< endl;
+        cout << "PUBLISHER CPP : " << dec << value << " Normal publish"<< endl;
         this_thread::sleep_for(1s);
 
         /*--------- Example 2 : Publish only on change ---------*/
@@ -22,18 +22,18 @@ int main(){
         }
         publisher.publishOnChange(++value);
 
-        cout << "PUBLISHER : " << dec << value << " Published on change" << endl;
+        cout << "PUBLISHER CPP : " << dec << value << " Published on change" << endl;
         this_thread::sleep_for(1s);
 
         /*--------- Example 3 : Push multiple in queue and notify after ---------*/
         
         for(int i=0;i<10;++i){
             publisher.setValueAndPush(++value);
-            cout << "PUBLISHER : " << dec << value << endl;
+            cout << "PUBLISHER CPP : " << dec << value << endl;
         }
         publisher.notifyAll();
 
-        cout << "PUBLISHER : " << dec << value << " Sent multiple"<< endl;
+        cout << "PUBLISHER CPP : " << dec << value << " Sent multiple"<< endl;
         this_thread::sleep_for(1s);
     }
     return 0;
