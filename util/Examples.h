@@ -1,4 +1,5 @@
 #include <atomic>
+#include <iostream>
 using namespace std;
 
 class ExampleClass{
@@ -7,10 +8,17 @@ class ExampleClass{
         float value2 = 0.0;
         long int value3 = 42;
         
+        void printValues(){
+            cout << "EXAMPLE CLASS : " << dec << 
+            value1 << ", " <<
+            value2 << ", " <<
+            value3 << "" <<
+            endl;
+        };
+
         // Comparison operators
         auto operator<=>(const ExampleClass&) const = default;
         bool operator==(const ExampleClass&) const = default;
-        bool operator!=(const ExampleClass&) const = default;
 };
 
 // To make atomic variable works in structs or objects,
@@ -25,6 +33,14 @@ class ExampleClassAtomic{
         ExampleClassAtomic() = default;
         ~ExampleClassAtomic() = default;
 
+        void printValues(){
+            cout << "EXAMPLE CLASS ATOMIC : " << dec << 
+            value1.load() << ", " <<
+            value2.load() << ", " <<
+            value3.load() << "" <<
+            endl;
+        };
+        
         //Need getter and setter for python compatibility
         int getValue1(){
             return value1.load();
