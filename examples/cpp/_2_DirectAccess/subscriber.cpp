@@ -5,7 +5,7 @@ using namespace std;
 
 int main(){
 
-    shps::Subscriber<atomic<int>> subscriber("DirectAccess", "DirectAccessSubscriber1");
+    shps::Subscriber<atomic<int>> subscriber("DirectAccess", "DirectAccessSubscriberCpp");
     int value = 0;
     
     while(1){

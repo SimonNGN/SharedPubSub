@@ -6,7 +6,7 @@ using namespace std;
 
 int main(){
 
-    shps::Subscriber<ExampleClassAtomic> subscriber("Object", "ObjectSubscriber1",true);
+    shps::Subscriber<ExampleClassAtomic> subscriber("ObjectAtomic", "ObjectAtomicCpp",true);
     
     while(1){
         /*--------- Example 1 : Wait for notification ---------*/

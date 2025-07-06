@@ -6,7 +6,7 @@ using namespace std;
 
 int main(){
     
-    shps::Publisher<ExampleClassAtomic> publisher("Object");
+    shps::Publisher<ExampleClassAtomic> publisher("ObjectAtomic");
     ExampleClassAtomic exampleObjectAtomic;
     while(1){
         /*--------- Example 1 : Publish  ---------*/

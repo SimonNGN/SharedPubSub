@@ -108,7 +108,8 @@ PYBIND11_MODULE(SharedPubSub, m) {
         .def(py::init<>())
         .def_readwrite("value1", &ExampleClass::value1)
         .def_readwrite("value2", &ExampleClass::value2)
-        .def_readwrite("value3", &ExampleClass::value3);
+        .def_readwrite("value3", &ExampleClass::value3)
+        .def("printValues",&ExampleClass::printValues);
 
     py::class_<ExampleClassAtomic>(m, "ExampleClassAtomic")
         .def(py::init<>())
@@ -117,7 +118,8 @@ PYBIND11_MODULE(SharedPubSub, m) {
         .def("getValue3", &ExampleClassAtomic::getValue3)
         .def("setValue1", &ExampleClassAtomic::setValue1)
         .def("setValue2", &ExampleClassAtomic::setValue2)
-        .def("setValue3", &ExampleClassAtomic::setValue3);
+        .def("setValue3", &ExampleClassAtomic::setValue3)
+        .def("printValues",&ExampleClassAtomic::printValues);
 
     // Base types
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(bool,      "bool")
