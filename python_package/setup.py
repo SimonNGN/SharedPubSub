@@ -6,7 +6,9 @@ ext_modules = [
         'SharedPubSub',
         ['module.cpp'],
         include_dirs=[pybind11.get_include(), '..','../util'],
-        language='c++'
+        language='c++',
+        extra_compile_args=['-std=c++20'],  # Needs this for some reason..
+        cxx_std=20
     ),
 ]
 

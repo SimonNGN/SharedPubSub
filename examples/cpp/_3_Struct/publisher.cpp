@@ -1,43 +1,38 @@
 #include <iostream>
 #include <thread>
 #include "SharedPubSub.hpp"
+#include "Examples.h"
 using namespace std;
-
-struct CustomStruct{
-    int value1 = 0;
-    float value2 = 0.0;
-    long int value3 = 42;
-};
 
 int main(){
     
-    shps::Publisher<CustomStruct> publisher("Struct");
-    CustomStruct customStruct;
+    shps::Publisher<ExampleStruct> publisher("Struct");
+    ExampleStruct exampleStruct;
     while(1){
         /*--------- Example 1 : Publish  ---------*/
-        customStruct = publisher.readValue();
-        customStruct.value1+=1;
-        customStruct.value2+=0.1;
-        customStruct.value3+=10;
-        publisher.publish(customStruct);
+        exampleStruct = publisher.readValue();
+        exampleStruct.value1+=1;
+        exampleStruct.value2+=0.1;
+        exampleStruct.value3+=10;
+        publisher.publish(exampleStruct);
         cout << "PUBLISHER : " << dec << 
-        customStruct.value1 << ", " <<
-        customStruct.value2 << ", " <<
-        customStruct.value3 << "" <<
+        exampleStruct.value1 << ", " <<
+        exampleStruct.value2 << ", " <<
+        exampleStruct.value3 << "" <<
         endl;
         this_thread::sleep_for(1s);
 
         /*--------- Example 2 : Get raw pointer, change value and notify  ---------*/
-        CustomStruct* rawCustomStruct = publisher.rawValue();
-        rawCustomStruct->value1+=1;
-        rawCustomStruct->value2+=0.1;
-        rawCustomStruct->value3+=10;
+        ExampleStruct* rawExampleStruct = publisher.rawValue();
+        rawExampleStruct->value1+=1;
+        rawExampleStruct->value2+=0.1;
+        rawExampleStruct->value3+=10;
         publisher.notifyAll();
 
         cout << "PUBLISHER : " << dec << 
-        rawCustomStruct->value1 << ", " <<
-        rawCustomStruct->value2 << ", " <<
-        rawCustomStruct->value3 << " RAW VALUE" <<
+        rawExampleStruct->value1 << ", " <<
+        rawExampleStruct->value2 << ", " <<
+        rawExampleStruct->value3 << " RAW VALUE" <<
         endl;
         this_thread::sleep_for(1s);
     }

@@ -1,7 +1,7 @@
 from SharedPubSub import *
 from time import sleep
 
-publisher = Publisher_atomic_int("DirectAccess")
+publisher = Publisher_atomic_int("Struct")
 value = 0
 
 while(True):

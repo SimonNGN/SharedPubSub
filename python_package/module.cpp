@@ -3,6 +3,7 @@
 #include <pybind11/iostream.h>
 #include "SharedPubSub.hpp"
 #include "FixedString.h"
+#include "Examples.h"
 
 using namespace std;
 
@@ -102,6 +103,21 @@ PYBIND11_MODULE(SharedPubSub, m) {
         .def("get", &FixedString<2048>::get)
         .def("set", static_cast<void (FixedString<2048>::*)(const string)>(&FixedString<2048>::set))
         .def("size", &FixedString<2048>::size);
+    
+    py::class_<ExampleClass>(m, "ExampleClass")
+        .def(py::init<>())
+        .def_readwrite("value1", &ExampleClass::value1)
+        .def_readwrite("value2", &ExampleClass::value2)
+        .def_readwrite("value3", &ExampleClass::value3);
+
+    py::class_<ExampleClassAtomic>(m, "ExampleClassAtomic")
+        .def(py::init<>())
+        .def("getValue1", &ExampleClassAtomic::getValue1)
+        .def("getValue2", &ExampleClassAtomic::getValue2)
+        .def("getValue3", &ExampleClassAtomic::getValue3)
+        .def("setValue1", &ExampleClassAtomic::setValue1)
+        .def("setValue2", &ExampleClassAtomic::setValue2)
+        .def("setValue3", &ExampleClassAtomic::setValue3);
 
     // Base types
     DECLARE_PUBSUB_NORMAL_AND_ATOMIC(bool,      "bool")
@@ -118,4 +134,6 @@ PYBIND11_MODULE(SharedPubSub, m) {
 
     // Custom Types
     declare_pubsub<FixedString<2048>>(m, "Publisher_FixedString2048", "Subscriber_FixedString2048");
+    declare_pubsub<ExampleClass>(m, "Publisher_ExampleClass", "Subscriber_ExampleClass");
+    declare_pubsub<ExampleClassAtomic>(m, "Publisher_ExampleClassAtomic", "Subscriber_ExampleClassAtomic");
 }
