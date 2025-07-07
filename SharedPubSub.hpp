@@ -481,7 +481,7 @@ class SharedMemoryManager{
                 perror("mmap");
                 return nullptr;
             }
-            NotifiedQueue<remove_atomic_t<T>>* notifiedQueue = new(pNotifiedQueue)NotifiedQueue<remove_atomic_t<T>>; // Create a Queue in the shared memory space
+            new(pNotifiedQueue)NotifiedQueue<remove_atomic_t<T>>; // Create a Queue in the shared memory space
             return (NotifiedQueue<remove_atomic_t<T>>*)pNotifiedQueue;
         };
 

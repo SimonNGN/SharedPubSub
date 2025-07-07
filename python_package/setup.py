@@ -9,10 +9,9 @@ ext_modules = [
     Extension(
         'SharedPubSub',
         ['module.cpp'],
-        include_dirs=[pybind11.get_include(), '..','../util'],
+        include_dirs=[pybind11.get_include(),'src'],
         language='c++',
-        extra_compile_args=['-std=c++20'],  # Needs this for some reason..
-        cxx_std=20
+        extra_compile_args=['-std=c++20','-Wno-reorder']
     ),
 ]
 
@@ -28,7 +27,6 @@ setup(
     zip_safe=False,
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: Linux",
+        "Operating System :: Linux"
     ],
 )
