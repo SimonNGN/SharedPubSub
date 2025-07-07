@@ -6,6 +6,7 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 - Event driven notification ; no need to poll for data.
 - Can use atomic types for main data, will automatically use the non-atomic version for queues and readings.
 - Templated, meaning you can share normal data, structs, objects, etc.
+- Cross-language compatible (C++,Python,Javascript(NodeJS) )
 - Multiple subscribers to one publisher.
 - Publisher can send data to subscriber's queue to read data in order.
 - Publishers and Subscribers also have direct access to data for custom loop timing ; Subscriber can read the current value at any time.
@@ -19,8 +20,13 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 - A POSIX environment (Most Linux distros)
 - C++20
 ## How to import to a project
-Add `SharedPubSub.hpp` header file to your project and include it.
-## Functions
+### C++
+- Add `SharedPubSub.hpp` header file to your project and include it.
+- Optionnaly, there's a FixedString<T> class in /util
+### Python
+- install the library `pip install SharedPubSub` and import it into your project.
+
+## Functions (C++)
 ### Publisher :
 |Function|Description|Usecase
 |---|---|---|
@@ -45,17 +51,23 @@ Add `SharedPubSub.hpp` header file to your project and include it.
 |`waitForNotify(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 |`rawValue`|returns a raw pointer to the topic's value.|To have direct access to the value. If publisher and subscribers have direct access to an atomic<> type or struc/object, they can use the value safely.|
 
-## How to build examples
-In the main folder :
+## How to build and run examples
+Examples are compatible between languages
+### C++
+In the `examples/cpp` folder :
 - `mkdir build && cd build`
 - `cmake .. && make`
-
-Examples will be in their respective folders.
+- Examples will be in the build folder
+### Python
+In the `python_package` folder :
+- `pip install .`
+- Examples are in the `examples/python` folder
 
 ## Pub/Sub Example
 Note : This example is only one of many mechanism. Please look at the `examples` folder.
 
-### Publisher
+### C++
+#### Publisher
 ```cpp
 #include <iostream>
 #include <thread>
@@ -76,7 +88,7 @@ int main(){
     return 0;
 }
 ```
-### Subscriber
+#### Subscriber
 ```cpp
 #include <iostream>
 #include <thread>
@@ -104,12 +116,35 @@ int main(){
     return 0;
 }
 ```
+### Python
+#### Publisher
+```python
+from SharedPubSub import *
+from time import sleep
 
+publisher = Publisher_int("PubSub")
+value = 0
+
+while(True):
+    value+=1
+    publisher.publish(value)
+    print("PUBLISHER PY :", value, "Normal publish")
+    sleep(1)
+```
+#### Subscriber
+```python
+from SharedPubSub import *
+
+subscriber = Subscriber_int("PubSub","PubSubSubscriberPy",True)
+
+while(True):
+    value = subscriber.readWait()
+    print("SUBSCRIBER :",value if value else "No value in queue")
+```
 ## Things to watch out for
 - The order in which the publisher and subscriber are created is not important, but if it is the FIRST time the shared memory is created, they cannot be created at the same time. Otherwise, there might be a race condition on the shared memory and the Topic object could be created twice, possibly causing the subscriberIndex to be 0 even though there is 1 subscriber. The recommended approach is to start one process first and make it a dependency for the other.
 - There is a maximum number of values in a queue (which you can change). When the queue is full, the publisher will not push to it anymore. The subscriber needs to be able to consume the values faster than they are being published.
 - All the data created in shared memory (/dev/shm) WILL PERSIST. The library does not destroy or clean the data, on purpose. That way, the publisher and subscriber can exit and come back at will and the data will still be valid. You have to manually handle cleaning if you want to.
 ## Wish list
-- Give cross-compatible example with Python
 - Give cross-compatible example with Javascript
 - Make it compatible with Windows and Mac

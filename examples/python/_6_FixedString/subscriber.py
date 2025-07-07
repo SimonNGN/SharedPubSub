@@ -11,5 +11,5 @@ while(True):
     print("SUBSCRIBER :",value.get() if value else "No value in queue")
 
     ### Example 2 : Wait for notification with a timeout ###
-    value = subscriber.readWait(2000) # in milliseconds
+    value = subscriber.readWaitMS(2000) # in milliseconds
     print("SUBSCRIBER :",value.get() if value else "No value in queue")
