@@ -56,9 +56,9 @@ void subscriber_waitForNotify(shps::Subscriber<T>& sub) {
 }
 
 template<typename T>
-void subscriber_waitForNotify_timeout(shps::Subscriber<T>& sub, double timeout) {
+void subscriber_waitForNotify_timeout(shps::Subscriber<T>& sub, long long timeout) {
     py::gil_scoped_release release;
-    sub.waitForNotify(chrono::milliseconds(static_cast<long>(timeout)));
+    sub.waitForNotify(chrono::milliseconds(timeout));
     return;
 }
 
@@ -83,9 +83,9 @@ void declare_pubsub(py::module_ &m, const char* pubname, const char* subname) {
         .def("rawValue", &shps::Subscriber<T>::rawValue, py::return_value_policy::reference)
         .def("readValue", &shps::Subscriber<T>::readValue)
         .def("readWait", &subscriber_readWait<T>)
-        .def("readWait", &subscriber_readWait_timeout<T>, py::arg("timeout"))
+        .def("readWaitMS", &subscriber_readWait_timeout<T>, py::arg("timeout"))
         .def("waitForNotify", &subscriber_waitForNotify<T>)
-        .def("waitForNotify", &subscriber_waitForNotify_timeout<T>, py::arg("timeout"));
+        .def("waitForNotifyMS", &subscriber_waitForNotify_timeout<T>, py::arg("timeout"));
 }
 
 // Macro to define both normal and atomic class
