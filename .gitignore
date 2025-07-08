@@ -43,6 +43,12 @@
 # build
 build/*
 build
+
+# Python
 *.egg-info
 dist/*
 dist
+
+# nodeJS
+node_modules
+package-lock.json

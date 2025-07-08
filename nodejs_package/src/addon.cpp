@@ -75,6 +75,9 @@ public:
             PublisherWrapper<T>::InstanceMethod("setValueAndNotifyOnChange", &PublisherWrapper<T>::SetValueAndNotifyOnChange),
             PublisherWrapper<T>::InstanceMethod("readValue", &PublisherWrapper<T>::ReadValue),
             PublisherWrapper<T>::InstanceMethod("notifyAll", &PublisherWrapper<T>::NotifyAll),
+            PublisherWrapper<T>::InstanceMethod("push", &PublisherWrapper<T>::Push),
+        PublisherWrapper<T>::InstanceMethod("setValueAndPush", &PublisherWrapper<T>::SetValueAndPush),
+        PublisherWrapper<T>::InstanceMethod("rawValue", &PublisherWrapper<T>::RawValue),
         });
         exports.Set(className, func);
         return exports;
@@ -118,6 +121,22 @@ private:
     Napi::Value NotifyAll(const Napi::CallbackInfo& info) {
         publisher_->notifyAll();
         return info.Env().Undefined();
+    }
+        Napi::Value Push(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->push(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value SetValueAndPush(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->setValueAndPush(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value RawValue(const Napi::CallbackInfo& info) {
+        T* rawPtr = publisher_->rawValue();
+        return convertToJS(info.Env(), *rawPtr);
     }
 
     Publisher<T>* publisher_;
