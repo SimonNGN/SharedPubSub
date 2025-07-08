@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "cmake-js compile", // Command to compile the addon
-    "build-debug": "cmake-js compile --debug" // For debug builds
+    "install": "cmake-js compile",
+    "build-debug": "cmake-js compile --debug"
   },
   "keywords": [
     "nodejs",
@@ -18,9 +18,9 @@
   "author": "Simon Nguyen",
   "license": "MIT",
   "dependencies": {
-    "node-addon-api": "^7.0.0" // Ensure this is installed
+    "node-addon-api": "^7.0.0"
   },
   "devDependencies": {
-    "cmake-js": "^7.0.0" // Your build tool
+    "cmake-js": "^7.0.0"
   }
 }

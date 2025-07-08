@@ -1,27 +1,36 @@
-# my-header-only-addon/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
-project(MyHeaderOnlyAddon LANGUAGES CXX)
-
-# Find Node.js and Node-API headers/libraries
-find_package(Nodejs REQUIRED)
+project(SharedPubSub LANGUAGES CXX)
 
 # Add the directory containing your header-only library
-# This tells the compiler where to find "my_header_only_lib.h"
 include_directories(plugin)
 
-# Define your Node.js addon target
-# 'myaddon' will be the name of your compiled .node file (myaddon.node)
-# Add your addon's C++ source files here
-Nodejs_ADDON_TARGET(SharedPubSub src/addon.cpp)
+# Include Node-API headers (cmake-js provides these automatically)
+include_directories(${CMAKE_JS_INC})
 
-# Link against Node-API for Napi:: usage
-target_link_libraries(SharedPubSub PRIVATE Nodejs::node_addon_api)
+# Include node-addon-api headers
+execute_process(
+    COMMAND node -p "require('node-addon-api').include"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE NODE_ADDON_API_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
+include_directories(${NODE_ADDON_API_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/plugin)
+
+# Define your Node.js addon target
+add_library(SharedPubSub SHARED src/addon.cpp)
+
+# Set the target name and properties for Node.js addon
+set_target_properties(SharedPubSub PROPERTIES PREFIX "" SUFFIX ".node")
+
+# Link against Node-API
+target_link_libraries(SharedPubSub ${CMAKE_JS_LIB})
 
 # Recommended: Disable C++ exceptions for N-API
-# This helps maintain stability, as Node.js doesn't handle C++ exceptions directly
 target_compile_definitions(SharedPubSub PRIVATE NAPI_DISABLE_CPP_EXCEPTIONS)
 
-# Set C++ standard (optional, but good practice)
+# Set C++ standard
 set_target_properties(SharedPubSub PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON

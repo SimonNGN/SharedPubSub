@@ -1,103 +1,219 @@
-#include <napi.h>               // Node-API header
-#include "../plugin/SharedPubSub.h" // Include your header-only library
+#include <napi.h>
+#include "SharedPubSub.hpp"
+#include "FixedString.h"
+#include "Examples.h"
+#include <chrono>
 
-// N-API wrapper for MyPlugin::calculate_sum
-Napi::Value CalculateSumWrapper(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
+using namespace shps;
+using namespace std;
 
-  // Basic argument validation
-  if (info.Length() < 3 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsNumber()) {
-    Napi::TypeError::New(env, "Three numbers expected").ThrowAsJavaScriptException();
+// Template helper for type conversion
+template<typename T>
+remove_atomic_t<T> convertFromJS(const Napi::Value& value) {
+    if constexpr (is_same_v<T, bool>) {
+        return value.As<Napi::Boolean>().Value();
+    } else if constexpr (is_integral_v<T>) {
+        return static_cast<T>(value.As<Napi::Number>().Int64Value());
+    } else if constexpr (is_floating_point_v<T>) {
+        return static_cast<T>(value.As<Napi::Number>().DoubleValue());
+    } else if constexpr (is_same_v<T, FixedString<2048>>) {
+        string str = value.As<Napi::String>().Utf8Value();
+        return T(str.c_str());
+    } else if constexpr (is_same_v<T, ExampleClass>) {
+        Napi::Object obj = value.As<Napi::Object>();
+        T result;
+        if (obj.Has("value1")) result.value1 = obj.Get("value1").As<Napi::Number>().Int32Value();
+        if (obj.Has("value2")) result.value2 = obj.Get("value2").As<Napi::Number>().DoubleValue();
+        if (obj.Has("value3")) result.value3 = static_cast<long>(obj.Get("value3").As<Napi::Number>().Int64Value());
+        return result;
+    } else if constexpr (is_same_v<T, ExampleClassAtomic>) {
+        Napi::Object obj = value.As<Napi::Object>();
+        T result;
+        if (obj.Has("value1")) result.value1 = obj.Get("value1").As<Napi::Number>().Int32Value();
+        if (obj.Has("value2")) result.value2 = obj.Get("value2").As<Napi::Number>().DoubleValue();
+        if (obj.Has("value3")) result.value3 = static_cast<long>(obj.Get("value3").As<Napi::Number>().Int64Value());
+        return result;
+    }
+    return T{};
+}
+
+template<typename T>
+Napi::Value convertToJS(Napi::Env env, const T& value) {
+    if constexpr (is_same_v<T, bool>) {
+        return Napi::Boolean::New(env, value);
+    } else if constexpr (is_integral_v<T>) {
+        return Napi::Number::New(env, static_cast<double>(value));
+    } else if constexpr (is_floating_point_v<T>) {
+        return Napi::Number::New(env, static_cast<double>(value));
+    } else if constexpr (is_same_v<T, FixedString<2048>>) {
+        return Napi::String::New(env, value.get());
+    } else if constexpr (is_same_v<T, ExampleClass>) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("value1", Napi::Number::New(env, value.value1));
+        obj.Set("value2", Napi::Number::New(env, value.value2));
+        obj.Set("value3", Napi::Number::New(env, value.value3));
+        return obj;
+    } else if constexpr (is_same_v<T, ExampleClassAtomic>) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("value1", Napi::Number::New(env, value.value1.load()));
+        obj.Set("value2", Napi::Number::New(env, value.value2.load()));
+        obj.Set("value3", Napi::Number::New(env, value.value3.load()));
+        return obj;
+    }
     return env.Null();
-  }
-
-  // Get arguments and call your C++ function
-  int a = info[0].As<Napi::Number>().Int32Value();
-  int b = info[1].As<Napi::Number>().Int32Value();
-  int c = info[2].As<Napi::Number>().Int32Value();
-
-  int result = MyPlugin::calculate_sum(a, b, c);
-
-  // Return the result to JavaScript
-  return Napi::Number::New(env, result);
 }
 
-// N-API wrapper for MyPlugin::calculate_vector_sum
-Napi::Value CalculateVectorSumWrapper(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsArray()) {
-        Napi::TypeError::New(env, "Array expected").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    Napi::Array jsArray = info[0].As<Napi::Array>();
-    std::vector<int> cppVector; // Assuming integer vector for simplicity
-
-    for (uint32_t i = 0; i < jsArray.Length(); ++i) {
-        Napi::Value val = jsArray[i];
-        if (!val.IsNumber()) {
-            Napi::TypeError::New(env, "Array must contain only numbers").ThrowAsJavaScriptException();
-            return env.Null();
-        }
-        cppVector.push_back(val.As<Napi::Number>().Int32Value());
-    }
-
-    int sum = MyPlugin::calculate_vector_sum(cppVector);
-    return Napi::Number::New(env, sum);
-}
-
-
-// N-API wrapper for MyPlugin::Greeter class
-// This demonstrates exposing a C++ class with methods
-class GreeterWrapper : public Napi::ObjectWrap<GreeterWrapper> {
+// Simplified wrapper classes
+template<typename T>
+class PublisherWrapper : public Napi::ObjectWrap<PublisherWrapper<T>> {
 public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    GreeterWrapper(const Napi::CallbackInfo& info);
+    static Napi::Object Init(Napi::Env env, Napi::Object exports, const string& className) {
+        Napi::Function func = PublisherWrapper<T>::DefineClass(env, className.c_str(), {
+            PublisherWrapper<T>::InstanceMethod("publish", &PublisherWrapper<T>::Publish),
+            PublisherWrapper<T>::InstanceMethod("publishOnChange", &PublisherWrapper<T>::PublishOnChange),
+            PublisherWrapper<T>::InstanceMethod("setValue", &PublisherWrapper<T>::SetValue),
+            PublisherWrapper<T>::InstanceMethod("setValueAndNotifyOnChange", &PublisherWrapper<T>::SetValueAndNotifyOnChange),
+            PublisherWrapper<T>::InstanceMethod("readValue", &PublisherWrapper<T>::ReadValue),
+            PublisherWrapper<T>::InstanceMethod("notifyAll", &PublisherWrapper<T>::NotifyAll),
+        });
+        exports.Set(className, func);
+        return exports;
+    }
+
+    PublisherWrapper(const Napi::CallbackInfo& info) : Napi::ObjectWrap<PublisherWrapper<T>>(info) {
+        string topicName = info[0].As<Napi::String>().Utf8Value();
+        publisher_ = new Publisher<T>(topicName);
+    }
 
 private:
-    Napi::Value GetGreeting(const Napi::CallbackInfo& info);
-    MyPlugin::Greeter* _greeter; // Pointer to our C++ Greeter object
+    Napi::Value Publish(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->publish(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value PublishOnChange(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->publishOnChange(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value SetValue(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->setValue(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value SetValueAndNotifyOnChange(const Napi::CallbackInfo& info) {
+        remove_atomic_t<T> value = convertFromJS<T>(info[0]);
+        publisher_->setValueAndNotifyOnChange(value);
+        return info.Env().Undefined();
+    }
+
+    Napi::Value ReadValue(const Napi::CallbackInfo& info) {
+        auto value = publisher_->readValue();
+        return convertToJS(info.Env(), value);
+    }
+
+    Napi::Value NotifyAll(const Napi::CallbackInfo& info) {
+        publisher_->notifyAll();
+        return info.Env().Undefined();
+    }
+
+    Publisher<T>* publisher_;
 };
 
-Napi::Object GreeterWrapper::Init(Napi::Env env, Napi::Object exports) {
-    Napi::HandleScope scope(env);
+template<typename T>
+class SubscriberWrapper : public Napi::ObjectWrap<SubscriberWrapper<T>> {
+public:
+    static Napi::Object Init(Napi::Env env, Napi::Object exports, const string& className) {
+        Napi::Function func = SubscriberWrapper<T>::DefineClass(env, className.c_str(), {
+            SubscriberWrapper<T>::InstanceMethod("subscribe", &SubscriberWrapper<T>::Subscribe),
+            SubscriberWrapper<T>::InstanceMethod("readValue", &SubscriberWrapper<T>::ReadValue),
+            SubscriberWrapper<T>::InstanceMethod("readWait", &SubscriberWrapper<T>::ReadWait),
+            SubscriberWrapper<T>::InstanceMethod("readWaitMS", &SubscriberWrapper<T>::ReadWaitMS),
+            SubscriberWrapper<T>::InstanceMethod("waitForNotify", &SubscriberWrapper<T>::WaitForNotify),
+            SubscriberWrapper<T>::InstanceMethod("waitForNotifyMS", &SubscriberWrapper<T>::WaitForNotifyMS),
+            SubscriberWrapper<T>::InstanceMethod("rawValue", &SubscriberWrapper<T>::RawValue),
+        });
+        exports.Set(className, func);
+        return exports;
+    }
 
-    Napi::Function func = DefineClass(env, "Greeter", {
-        InstanceMethod("getGreeting", &GreeterWrapper::GetGreeting),
-        // Add more instance methods here if your Greeter class has them
-    });
+    SubscriberWrapper(const Napi::CallbackInfo& info) : Napi::ObjectWrap<SubscriberWrapper<T>>(info) {
+        string topicName = info[0].As<Napi::String>().Utf8Value();
+        string subscriberName = info[1].As<Napi::String>().Utf8Value();
+        bool doSubscribe = info.Length() > 2 ? info[2].As<Napi::Boolean>().Value() : false;
+        subscriber_ = new Subscriber<T>(topicName, subscriberName, doSubscribe);
+    }
 
-    Napi::FunctionReference* constructor = new Napi::FunctionReference();
-    *constructor = Napi::Persistent(func);
-    env.SetInstanceData(constructor);
+private:
+    Napi::Value Subscribe(const Napi::CallbackInfo& info) {
+        bool result = subscriber_->subscribe();
+        return Napi::Boolean::New(info.Env(), result);
+    }
 
-    exports.Set("Greeter", func);
+    Napi::Value ReadValue(const Napi::CallbackInfo& info) {
+        auto value = subscriber_->readValue();
+        return convertToJS(info.Env(), value);
+    }
+
+    Napi::Value ReadWait(const Napi::CallbackInfo& info) {
+        auto result = subscriber_->readWait();
+        if (!result.has_value()) return info.Env().Null();
+        return convertToJS(info.Env(), result.value());
+    }
+
+    Napi::Value ReadWaitMS(const Napi::CallbackInfo& info) {
+        int timeout = info[0].As<Napi::Number>().Int32Value();
+        auto result = subscriber_->readWait(chrono::milliseconds(timeout));
+        if (!result.has_value()) return info.Env().Null();
+        return convertToJS(info.Env(), result.value());
+    }
+
+    Napi::Value WaitForNotify(const Napi::CallbackInfo& info) {
+        subscriber_->waitForNotify();
+        return info.Env().Undefined();
+    }
+
+    Napi::Value WaitForNotifyMS(const Napi::CallbackInfo& info) {
+        int timeout = info[0].As<Napi::Number>().Int32Value();
+        subscriber_->waitForNotify(chrono::milliseconds(timeout));
+        return info.Env().Undefined();
+    }
+
+    Napi::Value RawValue(const Napi::CallbackInfo& info) {
+        T* rawPtr = subscriber_->rawValue();
+        return convertToJS(info.Env(), *rawPtr);
+    }
+
+    Subscriber<T>* subscriber_;
+};
+
+// Macro to register types
+#define REGISTER_TYPE(TYPE, NAME) \
+    PublisherWrapper<TYPE>::Init(env, exports, "Publisher_" NAME); \
+    SubscriberWrapper<TYPE>::Init(env, exports, "Subscriber_" NAME);
+
+Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+    REGISTER_TYPE(bool, "bool")
+    REGISTER_TYPE(int, "int")
+    REGISTER_TYPE(unsigned int, "uint")
+    REGISTER_TYPE(int8_t, "int8")
+    REGISTER_TYPE(uint8_t, "uint8")
+    REGISTER_TYPE(int16_t, "int16")
+    REGISTER_TYPE(uint16_t, "uint16")
+    REGISTER_TYPE(int64_t, "int64")
+    REGISTER_TYPE(uint64_t, "uint64")
+    REGISTER_TYPE(float, "float")
+    REGISTER_TYPE(double, "double")
+    
+    // Custom types - using correct type names
+    REGISTER_TYPE(FixedString<2048>, "FixedString2048")
+    REGISTER_TYPE(ExampleClass, "ExampleClass")
+    REGISTER_TYPE(ExampleClassAtomic, "ExampleClassAtomic")
+    
     return exports;
 }
 
-GreeterWrapper::GreeterWrapper(const Napi::CallbackInfo& info) : Napi::ObjectWrap<GreeterWrapper>(info) {
-    Napi::Env env = info.Env();
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "String expected for Greeter name").ThrowAsJavaScriptException();
-        return;
-    }
-    std::string name = info[0].As<Napi::String>().Utf8Value();
-    _greeter = new MyPlugin::Greeter(name); // Create instance of your C++ class
-}
-
-Napi::Value GreeterWrapper::GetGreeting(const Napi::CallbackInfo& info) {
-    return Napi::String::New(info.Env(), _greeter->get_greeting());
-}
-
-
-// Main initialization function for the addon
-Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-  exports.Set(Napi::String::New(env, "calculateSum"), Napi::Function::New(env, CalculateSumWrapper));
-  exports.Set(Napi::String::New(env, "calculateVectorSum"), Napi::Function::New(env, CalculateVectorSumWrapper));
-  GreeterWrapper::Init(env, exports); // Initialize the Greeter class
-  return exports;
-}
-
-// Register the addon module with Node.js
-NODE_API_MODULE(NODE_GYP_ADDON_NAME, InitAll) // NODE_GYP_ADDON_NAME is a macro from node-gyp/cmake-js for the target name
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, InitAll)
