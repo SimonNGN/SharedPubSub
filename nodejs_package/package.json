@@ -1,0 +1,26 @@
+{
+  "name": "SharedPubSub",
+  "version": "1.0.0",
+  "description": "Shared memory Publisher and Subscriber library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "cmake-js compile", // Command to compile the addon
+    "build-debug": "cmake-js compile --debug" // For debug builds
+  },
+  "keywords": [
+    "nodejs",
+    "addon",
+    "cpp",
+    "header-only",
+    "napi"
+  ],
+  "author": "Simon Nguyen",
+  "license": "MIT",
+  "dependencies": {
+    "node-addon-api": "^7.0.0" // Ensure this is installed
+  },
+  "devDependencies": {
+    "cmake-js": "^7.0.0" // Your build tool
+  }
+}
