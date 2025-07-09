@@ -10,15 +10,17 @@ using namespace std;
 // Template helper for type conversion
 template<typename T>
 remove_atomic_t<T> convertFromJS(const Napi::Value& value) {
-    if constexpr (is_same_v<T, bool>) {
+    using BaseType = remove_atomic_t<T>;
+    
+    if constexpr (is_same_v<BaseType, bool>) {
         return value.As<Napi::Boolean>().Value();
-    } else if constexpr (is_integral_v<T>) {
-        return static_cast<T>(value.As<Napi::Number>().Int64Value());
-    } else if constexpr (is_floating_point_v<T>) {
-        return static_cast<T>(value.As<Napi::Number>().DoubleValue());
-    } else if constexpr (is_same_v<T, FixedString<2048>>) {
+    } else if constexpr (is_integral_v<BaseType>) {
+        return static_cast<BaseType>(value.As<Napi::Number>().Int64Value());
+    } else if constexpr (is_floating_point_v<BaseType>) {
+        return static_cast<BaseType>(value.As<Napi::Number>().DoubleValue());
+    } else if constexpr (is_same_v<BaseType, FixedString<2048>>) {
         string str = value.As<Napi::String>().Utf8Value();
-        return T(str.c_str());
+        return BaseType(str.c_str());
     } else if constexpr (is_same_v<T, ExampleClass>) {
         Napi::Object obj = value.As<Napi::Object>();
         T result;
@@ -34,12 +36,15 @@ remove_atomic_t<T> convertFromJS(const Napi::Value& value) {
         if (obj.Has("value3")) result.value3 = static_cast<long>(obj.Get("value3").As<Napi::Number>().Int64Value());
         return result;
     }
-    return T{};
+    return BaseType{};
 }
 
 template<typename T>
 Napi::Value convertToJS(Napi::Env env, const T& value) {
-    if constexpr (is_same_v<T, bool>) {
+    if constexpr (is_std_atomic<T>::value) {
+        // For atomic types, load the value and recurse
+        return convertToJS(env, value.load());
+    } else if constexpr (is_same_v<T, bool>) {
         return Napi::Boolean::New(env, value);
     } else if constexpr (is_integral_v<T>) {
         return Napi::Number::New(env, static_cast<double>(value));
@@ -62,7 +67,6 @@ Napi::Value convertToJS(Napi::Env env, const T& value) {
     }
     return env.Null();
 }
-
 // Simplified wrapper classes
 template<typename T>
 class PublisherWrapper : public Napi::ObjectWrap<PublisherWrapper<T>> {
@@ -114,7 +118,7 @@ private:
     }
 
     Napi::Value ReadValue(const Napi::CallbackInfo& info) {
-        auto value = publisher_->readValue();
+        remove_atomic_t<T> value = publisher_->readValue();
         return convertToJS(info.Env(), value);
     }
 
@@ -173,7 +177,7 @@ private:
     }
 
     Napi::Value ReadValue(const Napi::CallbackInfo& info) {
-        auto value = subscriber_->readValue();
+        remove_atomic_t<T> value = subscriber_->readValue();
         return convertToJS(info.Env(), value);
     }
 
@@ -226,6 +230,18 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
     REGISTER_TYPE(uint64_t, "uint64")
     REGISTER_TYPE(float, "float")
     REGISTER_TYPE(double, "double")
+    
+    REGISTER_TYPE(atomic<bool>, "atomic_bool")
+    REGISTER_TYPE(atomic<int>, "atomic_int")
+    REGISTER_TYPE(atomic<unsigned int>, "atomic_uint")
+    REGISTER_TYPE(atomic<int8_t>, "atomic_int8")
+    REGISTER_TYPE(atomic<uint8_t>, "atomic_uint8")
+    REGISTER_TYPE(atomic<int16_t>, "atomic_int16")
+    REGISTER_TYPE(atomic<uint16_t>, "atomic_uint16")
+    REGISTER_TYPE(atomic<int64_t>, "atomic_int64")
+    REGISTER_TYPE(atomic<uint64_t>, "atomic_uint64")
+    REGISTER_TYPE(atomic<float>, "atomic_float")
+    REGISTER_TYPE(atomic<double>, "atomic_double")
     
     // Custom types - using correct type names
     REGISTER_TYPE(FixedString<2048>, "FixedString2048")

@@ -92,8 +92,8 @@ using remove_atomic_t = typename remove_atomic<T>::type;    // Utility type 3 to
 template<typename T>
 struct is_std_atomic : std::false_type {};                  // Utility type 1 to detect atomic type            
 
-template<typename U>
-struct is_std_atomic<std::atomic<U>> : std::true_type {};   // Utility type 2 to detect atomic type 
+template<typename T>
+struct is_std_atomic<std::atomic<T>> : std::true_type {};   // Utility type 2 to detect atomic type 
 
 /*
     Publisher

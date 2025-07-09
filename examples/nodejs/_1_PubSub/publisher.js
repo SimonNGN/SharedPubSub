@@ -1,7 +1,5 @@
-const SharedPubSub = require('../build/Release/SharedPubSub');
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+const SharedPubSub = require('SharedPubSub');
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const publisher = new SharedPubSub.Publisher_int("PubSub");
 let value = 0;
