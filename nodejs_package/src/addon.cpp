@@ -213,35 +213,29 @@ private:
     Subscriber<T>* subscriber_;
 };
 
+#define REGISTER_TYPE_WITH_ATOMIC(TYPE, NAME) \
+    PublisherWrapper<TYPE>::Init(env, exports, "Publisher_" NAME); \
+    SubscriberWrapper<TYPE>::Init(env, exports, "Subscriber_" NAME); \
+    PublisherWrapper<atomic<TYPE>>::Init(env, exports, "Publisher_atomic_" NAME); \
+    SubscriberWrapper<atomic<TYPE>>::Init(env, exports, "Subscriber_atomic_" NAME);
+
 // Macro to register types
 #define REGISTER_TYPE(TYPE, NAME) \
     PublisherWrapper<TYPE>::Init(env, exports, "Publisher_" NAME); \
     SubscriberWrapper<TYPE>::Init(env, exports, "Subscriber_" NAME);
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-    REGISTER_TYPE(bool, "bool")
-    REGISTER_TYPE(int, "int")
-    REGISTER_TYPE(unsigned int, "uint")
-    REGISTER_TYPE(int8_t, "int8")
-    REGISTER_TYPE(uint8_t, "uint8")
-    REGISTER_TYPE(int16_t, "int16")
-    REGISTER_TYPE(uint16_t, "uint16")
-    REGISTER_TYPE(int64_t, "int64")
-    REGISTER_TYPE(uint64_t, "uint64")
-    REGISTER_TYPE(float, "float")
-    REGISTER_TYPE(double, "double")
-    
-    REGISTER_TYPE(atomic<bool>, "atomic_bool")
-    REGISTER_TYPE(atomic<int>, "atomic_int")
-    REGISTER_TYPE(atomic<unsigned int>, "atomic_uint")
-    REGISTER_TYPE(atomic<int8_t>, "atomic_int8")
-    REGISTER_TYPE(atomic<uint8_t>, "atomic_uint8")
-    REGISTER_TYPE(atomic<int16_t>, "atomic_int16")
-    REGISTER_TYPE(atomic<uint16_t>, "atomic_uint16")
-    REGISTER_TYPE(atomic<int64_t>, "atomic_int64")
-    REGISTER_TYPE(atomic<uint64_t>, "atomic_uint64")
-    REGISTER_TYPE(atomic<float>, "atomic_float")
-    REGISTER_TYPE(atomic<double>, "atomic_double")
+    REGISTER_TYPE_WITH_ATOMIC(bool, "bool")
+    REGISTER_TYPE_WITH_ATOMIC(int, "int")
+    REGISTER_TYPE_WITH_ATOMIC(uint, "uint")
+    REGISTER_TYPE_WITH_ATOMIC(int8_t, "int8")
+    REGISTER_TYPE_WITH_ATOMIC(uint8_t, "uint8")
+    REGISTER_TYPE_WITH_ATOMIC(int16_t, "int16")
+    REGISTER_TYPE_WITH_ATOMIC(uint16_t, "uint16")
+    REGISTER_TYPE_WITH_ATOMIC(int64_t, "int64")
+    REGISTER_TYPE_WITH_ATOMIC(uint64_t, "uint64")
+    REGISTER_TYPE_WITH_ATOMIC(float, "float")
+    REGISTER_TYPE_WITH_ATOMIC(double, "double")
     
     // Custom types - using correct type names
     REGISTER_TYPE(FixedString<2048>, "FixedString2048")
