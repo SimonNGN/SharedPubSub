@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 project(SharedPubSub LANGUAGES CXX)
 
 # Add the directory containing your header-only library
-include_directories(plugin)
+include_directories(${CMAKE_JS_INC})
+include_directories(plugin)  # This line is crucial
 
 # Include Node-API headers (cmake-js provides these automatically)
 include_directories(${CMAKE_JS_INC})

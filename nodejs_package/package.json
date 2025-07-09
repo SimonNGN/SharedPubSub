@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "description": "Shared memory Publisher and Subscriber library",
   "main": "index.js",
+    "files": [
+    "build/",
+    "src/",
+    "plugin/",
+    "CMakeLists.txt",
+    "index.js"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "install": "cmake-js compile",
@@ -18,7 +25,8 @@
   "author": "Simon Nguyen",
   "license": "MIT",
   "dependencies": {
-    "node-addon-api": "^7.0.0"
+    "node-addon-api": "^7.0.0",
+    "cmake-js": "^7.0.0"
   },
   "devDependencies": {
     "cmake-js": "^7.0.0"
