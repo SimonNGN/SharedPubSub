@@ -7,20 +7,19 @@
 using namespace shps;
 using namespace std;
 
-// Template helper for type conversion
+// Utility function to convert JS types to C++ types
 template<typename T>
 remove_atomic_t<T> convertFromJS(const Napi::Value& value) {
-    using BaseType = remove_atomic_t<T>;
     
-    if constexpr (is_same_v<BaseType, bool>) {
+    if constexpr (is_same_v<remove_atomic_t<T>, bool>) {
         return value.As<Napi::Boolean>().Value();
-    } else if constexpr (is_integral_v<BaseType>) {
-        return static_cast<BaseType>(value.As<Napi::Number>().Int64Value());
-    } else if constexpr (is_floating_point_v<BaseType>) {
-        return static_cast<BaseType>(value.As<Napi::Number>().DoubleValue());
-    } else if constexpr (is_same_v<BaseType, FixedString<2048>>) {
+    } else if constexpr (is_integral_v<remove_atomic_t<T>>) {
+        return static_cast<remove_atomic_t<T>>(value.As<Napi::Number>().Int64Value());
+    } else if constexpr (is_floating_point_v<remove_atomic_t<T>>) {
+        return static_cast<remove_atomic_t<T>>(value.As<Napi::Number>().DoubleValue());
+    } else if constexpr (is_same_v<remove_atomic_t<T>, FixedString<2048>>) {
         string str = value.As<Napi::String>().Utf8Value();
-        return BaseType(str.c_str());
+        return remove_atomic_t<T>(str.c_str());
     } else if constexpr (is_same_v<T, ExampleClass>) {
         Napi::Object obj = value.As<Napi::Object>();
         T result;
@@ -36,7 +35,7 @@ remove_atomic_t<T> convertFromJS(const Napi::Value& value) {
         if (obj.Has("value3")) result.value3 = static_cast<long>(obj.Get("value3").As<Napi::Number>().Int64Value());
         return result;
     }
-    return BaseType{};
+    return remove_atomic_t<T>{};
 }
 
 template<typename T>
@@ -73,15 +72,15 @@ class PublisherWrapper : public Napi::ObjectWrap<PublisherWrapper<T>> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports, const string& className) {
         Napi::Function func = PublisherWrapper<T>::DefineClass(env, className.c_str(), {
-            PublisherWrapper<T>::InstanceMethod("publish", &PublisherWrapper<T>::Publish),
-            PublisherWrapper<T>::InstanceMethod("publishOnChange", &PublisherWrapper<T>::PublishOnChange),
-            PublisherWrapper<T>::InstanceMethod("setValue", &PublisherWrapper<T>::SetValue),
-            PublisherWrapper<T>::InstanceMethod("setValueAndNotifyOnChange", &PublisherWrapper<T>::SetValueAndNotifyOnChange),
-            PublisherWrapper<T>::InstanceMethod("readValue", &PublisherWrapper<T>::ReadValue),
-            PublisherWrapper<T>::InstanceMethod("notifyAll", &PublisherWrapper<T>::NotifyAll),
-            PublisherWrapper<T>::InstanceMethod("push", &PublisherWrapper<T>::Push),
-        PublisherWrapper<T>::InstanceMethod("setValueAndPush", &PublisherWrapper<T>::SetValueAndPush),
-        PublisherWrapper<T>::InstanceMethod("rawValue", &PublisherWrapper<T>::RawValue),
+            PublisherWrapper<T>::InstanceMethod("rawValue", &PublisherWrapper<T>::rawValue),
+            PublisherWrapper<T>::InstanceMethod("setValue", &PublisherWrapper<T>::setValue),
+            PublisherWrapper<T>::InstanceMethod("readValue", &PublisherWrapper<T>::readValue),
+            PublisherWrapper<T>::InstanceMethod("publish", &PublisherWrapper<T>::publish),
+            PublisherWrapper<T>::InstanceMethod("push", &PublisherWrapper<T>::push),
+            PublisherWrapper<T>::InstanceMethod("setValueAndPush", &PublisherWrapper<T>::setValueAndPush),
+            PublisherWrapper<T>::InstanceMethod("publishOnChange", &PublisherWrapper<T>::publishOnChange),
+            PublisherWrapper<T>::InstanceMethod("setValueAndNotifyOnChange", &PublisherWrapper<T>::setValueAndNotifyOnChange),
+            PublisherWrapper<T>::InstanceMethod("notifyAll", &PublisherWrapper<T>::notifyAll),
         });
         exports.Set(className, func);
         return exports;
@@ -93,52 +92,52 @@ public:
     }
 
 private:
-    Napi::Value Publish(const Napi::CallbackInfo& info) {
+    Napi::Value publish(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->publish(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value PublishOnChange(const Napi::CallbackInfo& info) {
+    Napi::Value publishOnChange(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->publishOnChange(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value SetValue(const Napi::CallbackInfo& info) {
+    Napi::Value setValue(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->setValue(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value SetValueAndNotifyOnChange(const Napi::CallbackInfo& info) {
+    Napi::Value setValueAndNotifyOnChange(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->setValueAndNotifyOnChange(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value ReadValue(const Napi::CallbackInfo& info) {
+    Napi::Value readValue(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = publisher_->readValue();
         return convertToJS(info.Env(), value);
     }
 
-    Napi::Value NotifyAll(const Napi::CallbackInfo& info) {
+    Napi::Value notifyAll(const Napi::CallbackInfo& info) {
         publisher_->notifyAll();
         return info.Env().Undefined();
     }
-        Napi::Value Push(const Napi::CallbackInfo& info) {
+    Napi::Value push(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->push(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value SetValueAndPush(const Napi::CallbackInfo& info) {
+    Napi::Value setValueAndPush(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = convertFromJS<T>(info[0]);
         publisher_->setValueAndPush(value);
         return info.Env().Undefined();
     }
 
-    Napi::Value RawValue(const Napi::CallbackInfo& info) {
+    Napi::Value rawValue(const Napi::CallbackInfo& info) {
         T* rawPtr = publisher_->rawValue();
         return convertToJS(info.Env(), *rawPtr);
     }
@@ -151,13 +150,13 @@ class SubscriberWrapper : public Napi::ObjectWrap<SubscriberWrapper<T>> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports, const string& className) {
         Napi::Function func = SubscriberWrapper<T>::DefineClass(env, className.c_str(), {
-            SubscriberWrapper<T>::InstanceMethod("subscribe", &SubscriberWrapper<T>::Subscribe),
-            SubscriberWrapper<T>::InstanceMethod("readValue", &SubscriberWrapper<T>::ReadValue),
-            SubscriberWrapper<T>::InstanceMethod("readWait", &SubscriberWrapper<T>::ReadWait),
-            SubscriberWrapper<T>::InstanceMethod("readWaitMS", &SubscriberWrapper<T>::ReadWaitMS),
-            SubscriberWrapper<T>::InstanceMethod("waitForNotify", &SubscriberWrapper<T>::WaitForNotify),
-            SubscriberWrapper<T>::InstanceMethod("waitForNotifyMS", &SubscriberWrapper<T>::WaitForNotifyMS),
-            SubscriberWrapper<T>::InstanceMethod("rawValue", &SubscriberWrapper<T>::RawValue),
+            SubscriberWrapper<T>::InstanceMethod("subscribe", &SubscriberWrapper<T>::subscribe),
+            SubscriberWrapper<T>::InstanceMethod("rawValue", &SubscriberWrapper<T>::rawValue),
+            SubscriberWrapper<T>::InstanceMethod("readValue", &SubscriberWrapper<T>::readValue),
+            SubscriberWrapper<T>::InstanceMethod("readWait", &SubscriberWrapper<T>::readWait),
+            SubscriberWrapper<T>::InstanceMethod("readWaitMS", &SubscriberWrapper<T>::readWaitMS),
+            SubscriberWrapper<T>::InstanceMethod("waitForNotify", &SubscriberWrapper<T>::waitForNotify),
+            SubscriberWrapper<T>::InstanceMethod("waitForNotifyMS", &SubscriberWrapper<T>::waitForNotifyMS),
         });
         exports.Set(className, func);
         return exports;
@@ -171,41 +170,41 @@ public:
     }
 
 private:
-    Napi::Value Subscribe(const Napi::CallbackInfo& info) {
+    Napi::Value subscribe(const Napi::CallbackInfo& info) {
         bool result = subscriber_->subscribe();
         return Napi::Boolean::New(info.Env(), result);
     }
 
-    Napi::Value ReadValue(const Napi::CallbackInfo& info) {
+    Napi::Value readValue(const Napi::CallbackInfo& info) {
         remove_atomic_t<T> value = subscriber_->readValue();
         return convertToJS(info.Env(), value);
     }
 
-    Napi::Value ReadWait(const Napi::CallbackInfo& info) {
+    Napi::Value readWait(const Napi::CallbackInfo& info) {
         auto result = subscriber_->readWait();
         if (!result.has_value()) return info.Env().Null();
         return convertToJS(info.Env(), result.value());
     }
 
-    Napi::Value ReadWaitMS(const Napi::CallbackInfo& info) {
-        int timeout = info[0].As<Napi::Number>().Int32Value();
+    Napi::Value readWaitMS(const Napi::CallbackInfo& info) {
+        long long timeout = info[0].As<Napi::Number>().Int64Value();
         auto result = subscriber_->readWait(chrono::milliseconds(timeout));
         if (!result.has_value()) return info.Env().Null();
         return convertToJS(info.Env(), result.value());
     }
 
-    Napi::Value WaitForNotify(const Napi::CallbackInfo& info) {
+    Napi::Value waitForNotify(const Napi::CallbackInfo& info) {
         subscriber_->waitForNotify();
         return info.Env().Undefined();
     }
 
-    Napi::Value WaitForNotifyMS(const Napi::CallbackInfo& info) {
-        int timeout = info[0].As<Napi::Number>().Int32Value();
+    Napi::Value waitForNotifyMS(const Napi::CallbackInfo& info) {
+        long long timeout = info[0].As<Napi::Number>().Int64Value();
         subscriber_->waitForNotify(chrono::milliseconds(timeout));
         return info.Env().Undefined();
     }
 
-    Napi::Value RawValue(const Napi::CallbackInfo& info) {
+    Napi::Value rawValue(const Napi::CallbackInfo& info) {
         T* rawPtr = subscriber_->rawValue();
         return convertToJS(info.Env(), *rawPtr);
     }
@@ -237,7 +236,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
     REGISTER_TYPE_WITH_ATOMIC(float, "float")
     REGISTER_TYPE_WITH_ATOMIC(double, "double")
     
-    // Custom types - using correct type names
+    // Custom types
     REGISTER_TYPE(FixedString<2048>, "FixedString2048")
     REGISTER_TYPE(ExampleClass, "ExampleClass")
     REGISTER_TYPE(ExampleClassAtomic, "ExampleClassAtomic")
