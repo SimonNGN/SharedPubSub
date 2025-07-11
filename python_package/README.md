@@ -52,7 +52,7 @@ install the library `pip install SharedPubSub` and import it into your project.
 Examples are compatible between languages
 ### Python
 In the `python_package` folder :
-- `pip install .`
+- `pip install .` (You might want to do this in a venv)
 - Examples are in the `examples/python` folder
 
 ## Pub/Sub Example

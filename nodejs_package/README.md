@@ -20,15 +20,8 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 - A POSIX environment (Most Linux distros)
 - C++20
 ## How to import to a project
-### C++
-- Add `SharedPubSub.hpp` header file to your project and include it.
-- Optionnaly, there's a FixedString<T> class in /util
-### Python
-- install the library `pip install SharedPubSub` and import it into your project.
-### NodeJs
-- install the library in your working folder with `npm install SharedPubSub`.
-
-## Functions (ALL LANGUAGE)
+install the library in your folder with `npm install SharedPubSub`.
+## Functions (NodeJS)
 ### Publisher :
 |Function|Description|Usecase
 |---|---|---|
@@ -47,34 +40,14 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 |---|---|---|
 |`subscribe`|Opens a queue in the topic.|Enables the subscriber to get notified and read values in a queue.|
 |`readValue`|Returns a copy of the topic's value.|To read the current topic's value without the queue.|
-|`readWait`|Pops a value in the queue.<br>If no value,waits indefinitely for notification.<br>Pops a value in the queue.|If we want to consume the queue or wait for a value in the queue without polling or a spinloop.|forever.|
+|`readWait`|Pops a value in the queue.<br>If no value,waits indefinitely for notification.<br>Pops a value in the queue.|If we want to consume the queue or wait for a value in the queue without polling or a spinloop.|
+|`readWaitMS(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 |`waitForNotify`|Simply wait for notification.|If the subscriber uses direct access but still wants to get notified.|
+|`waitForNotifyMS(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 |`rawValue`|returns a raw pointer to the topic's value.|To have direct access to the value. If publisher and subscribers have direct access to an atomic<> type or struc/object, they can use the value safely.|
-
-## Exclusive Functions
-### C++
-|Function|Description|Usecase
-|---|---|---|
-|`readWait(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting 
-|`waitForNotify(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
-### Python
-|`readWaitMS(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
-|`waitForNotifyMS(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
-### NodeJs
-|`readWaitMS(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
-|`waitForNotifyMS(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 
 ## How to build and run examples
 Examples are compatible between languages
-### C++
-In the `examples/cpp` folder :
-- `mkdir build && cd build`
-- `cmake .. && make`
-- Examples will be in the build folder
-### Python
-In the `python_package` folder :
-- `pip install .`
-- Examples are in the `examples/python` folder
 ### NodeJS
 In the `nodejs_package` folder :
 - `npm install -g .` (You might need to setup your global environment)
@@ -82,82 +55,6 @@ In the `nodejs_package` folder :
 
 ## Pub/Sub Example
 Note : This example is only one of many mechanism. Please look at the `examples` folder.
-
-### C++
-#### Publisher
-```cpp
-#include <iostream>
-#include <thread>
-#include "SharedPubSub.hpp"
-using namespace std;
-
-int main(){
-    
-    shps::Publisher<int> publisher("PubSub");
-    int value = 0;
-    
-    while(1){
-        publisher.publish(++value);
-        
-        cout << "PUBLISHER : " << dec << value << " Normal publish"<< endl;
-        this_thread::sleep_for(1s);
-    }
-    return 0;
-}
-```
-#### Subscriber
-```cpp
-#include <iostream>
-#include <thread>
-#include "SharedPubSub.hpp"
-using namespace std;
-
-int main(){
-
-    shps::Subscriber<int> subscriber("PubSub", "PubSubSubscriber1",true);
-    optional<int> value = nullopt;
-
-    while(1){
-
-        value = subscriber.readWait();
-
-        // Verify if the queue had a value on notification.
-        if(value.has_value()){
-            cout << "SUBSCRIBER : " << dec << value.value() << endl;
-        }
-        else{
-            cout << "SUBSCRIBER : No value in queue" << endl;
-        }
-        
-    }
-    return 0;
-}
-```
-### Python
-#### Publisher
-```python
-from SharedPubSub import *
-from time import sleep
-
-publisher = Publisher_int("PubSub")
-value = 0
-
-while(True):
-    value+=1
-    publisher.publish(value)
-    print("PUBLISHER PY :", value, "Normal publish")
-    sleep(1)
-```
-#### Subscriber
-```python
-from SharedPubSub import *
-
-subscriber = Subscriber_int("PubSub","PubSubSubscriberPy",True)
-
-while(True):
-    value = subscriber.readWait()
-    print("SUBSCRIBER :",value if value else "No value in queue")
-```
 
 ### NodeJS
 #### Publisher
@@ -202,10 +99,77 @@ async function loop() {
 
 loop().catch(console.error);
 ```
+
+## Classes
+This library as some base classes and a custom string classes.<br>
+YOU CAN IMPLEMENT YOUR OWN by changing the source code.
+
+### Custom Classes
+- `FixedString2048`
+- `ExampleClass`
+- `ExampleClassAtomic`
+
+### Publisher Classes
+- `Publisher_bool`
+- `Publisher_int`
+- `Publisher_uint`
+- `Publisher_int8`
+- `Publisher_uint8`
+- `Publisher_int16`
+- `Publisher_uint16`
+- `Publisher_int64`
+- `Publisher_uint64`
+- `Publisher_float`
+- `Publisher_double`
+- `Publisher_FixedString2048`
+- `Publisher_ExampleClass`
+
+### Atomic Publisher Classes
+- `Publisher_atomic_bool`
+- `Publisher_atomic_int`
+- `Publisher_atomic_uint`
+- `Publisher_atomic_int8`
+- `Publisher_atomic_uint8`
+- `Publisher_atomic_int16`
+- `Publisher_atomic_uint16`
+- `Publisher_atomic_int64`
+- `Publisher_atomic_uint64`
+- `Publisher_atomic_float`
+- `Publisher_atomic_double`
+- `Publisher_ExampleClassAtomic`
+
+### Subscriber Classes
+- `Subscriber_bool`
+- `Subscriber_int`
+- `Subscriber_uint`
+- `Subscriber_int8`
+- `Subscriber_uint8`
+- `Subscriber_int16`
+- `Subscriber_uint16`
+- `Subscriber_int64`
+- `Subscriber_uint64`
+- `Subscriber_float`
+- `Subscriber_double`
+- `Subscriber_FixedString2048`
+- `Subscriber_ExampleClass`
+
+### Atomic Subscriber Classes
+- `Subscriber_atomic_bool`
+- `Subscriber_atomic_int`
+- `Subscriber_atomic_uint`
+- `Subscriber_atomic_int8`
+- `Subscriber_atomic_uint8`
+- `Subscriber_atomic_int16`
+- `Subscriber_atomic_uint16`
+- `Subscriber_atomic_int64`
+- `Subscriber_atomic_uint64`
+- `Subscriber_atomic_float`
+- `Subscriber_atomic_double`
+- `Subscriber_ExampleClassAtomic`
+
 ## Things to watch out for
 - The order in which the publisher and subscriber are created is not important, but if it is the FIRST time the shared memory is created, they cannot be created at the same time. Otherwise, there might be a race condition on the shared memory and the Topic object could be created twice, possibly causing the subscriberIndex to be 0 even though there is 1 subscriber. The recommended approach is to start one process first and make it a dependency for the other.
 - There is a maximum number of values in a queue (which you can change). When the queue is full, the publisher will not push to it anymore. The subscriber needs to be able to consume the values faster than they are being published.
 - All the data created in shared memory (/dev/shm) WILL PERSIST. The library does not destroy or clean the data, on purpose. That way, the publisher and subscriber can exit and come back at will and the data will still be valid. You have to manually handle cleaning if you want to.
 ## Wish list
-- Give cross-compatible example with Javascript
 - Make it compatible with Windows and Mac
