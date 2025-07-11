@@ -28,7 +28,7 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 ### NodeJs
 - install the library in your working folder with `npm install SharedPubSub`.
 
-## Functions (ALL LANGUAGE)
+## Functions (all languages)
 ### Publisher :
 |Function|Description|Usecase
 |---|---|---|
@@ -51,16 +51,20 @@ Provides Publisher and Subscriber classes for lock-free inter-process communicat
 |`waitForNotify`|Simply wait for notification.|If the subscriber uses direct access but still wants to get notified.|
 |`rawValue`|returns a raw pointer to the topic's value.|To have direct access to the value. If publisher and subscribers have direct access to an atomic<> type or struc/object, they can use the value safely.|
 
-## Exclusive Functions
+## Functions exclusive to languages
 ### C++
 |Function|Description|Usecase
 |---|---|---|
-|`readWait(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting 
-|`waitForNotify(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
+|`readWait(duration)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting 
+|`waitForNotify(duration)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 ### Python
+|Function|Description|Usecase
+|---|---|---|
 |`readWaitMS(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 |`waitForNotifyMS(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 ### NodeJs
+|Function|Description|Usecase
+|---|---|---|
 |`readWaitMS(timeout)`|Same as readWait, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 |`waitForNotifyMS(timeout)`|Same as waitForNotify, but with a timeout.|If we want to make sure the program doesn't get stuck waiting forever.|
 
