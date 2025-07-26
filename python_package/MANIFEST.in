@@ -1,0 +1,6 @@
+include SharedPubSub.pyi
+include *.md
+include *.py
+include *.pyi
+include LICENSE
+recursive-include src *.h *.hpp

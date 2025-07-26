@@ -1,0 +1,39 @@
+{
+  "name": "sharedpubsub",
+  "version": "1.0.7",
+  "description": "Shared memory Publisher and Subscriber library",
+  "main": "index.js",
+  "files": [
+    "build/",
+    "src/",
+    "plugin/",
+    "CMakeLists.txt",
+    "index.js",
+    "gif/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SimonNGN/SharedPubSub.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "cmake-js compile",
+    "build-debug": "cmake-js compile --debug"
+  },
+  "keywords": [
+    "nodejs",
+    "addon",
+    "cpp",
+    "header-only",
+    "napi"
+  ],
+  "author": "Simon Nguyen",
+  "license": "MIT",
+  "dependencies": {
+    "node-addon-api": "^7.0.0",
+    "cmake-js": "^7.0.0"
+  },
+  "devDependencies": {
+    "cmake-js": "^7.0.0"
+  }
+}
