@@ -18,7 +18,7 @@ ext_modules = [
 
 setup(
     name="SharedPubSub",
-    version="1.0.4",
+    version="1.0.7",
     author="Simon Nguyen",
     description="Shared memory Publisher and Subscriber library",
     long_description=long_description,
