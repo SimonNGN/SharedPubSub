@@ -69,16 +69,28 @@ template <typename T>
 class Subscriber;               // To read a value and/or subscribe to a topic and get notified.
 
 template <typename T>
+class SingleSubscriber;               // To read a value and/or subscribe to a topic and get notified.
+
+template <typename T>
+class PublisherToSingleSubscriber;    // To set a value and/or publish it on a topic to notify subscribers
+
+template <typename T>
+class SharedObject;             // To share an object and allow different processes to read and write to it
+
+template <typename T>
 class Topic;                    // Shared resource by the publisher and subscribers
 
 template <typename T>
 class SharedMemoryManager;      // Utility class to interact with posix shared memory functions
 
-template<typename T>            // Queue with the ability to notify/get notified
-class NotifiedQueue;
-
-template <class T, size_t N>    // Lock free Queue
+template <class T, size_t N>    // Lock free Queue for single Pub/multiple Sub
 class LockFreeQueue;
+
+template <class T, size_t N>    // Lock free reader Queue for multiple Pub/single Sub
+class LockFreeReaderQueue;
+
+template<typename T, template<class, size_t> class QueueType = LockFreeQueue, size_t N = 2048> // Queue with the ability to notify/get notified
+class NotifiedQueue;
 
 // Utility types
 template<typename T>
@@ -295,6 +307,13 @@ class Subscriber {
             return topic->getValue();
         }  
 
+        // Attempt to read one value from the queue
+        // Returns nullopt if no value was in the queue.
+        std::optional<remove_atomic_t<T>> readOne(){
+            if(notifiedQueue == nullptr){return std::nullopt;}
+            return notifiedQueue->pop();
+        }
+
         // Wait indefinitely for a new value signal and pop the latest value
         // Returns nullopt if no value was in the queue.
         std::optional<remove_atomic_t<T>> readWait(){
@@ -342,6 +361,45 @@ class Subscriber {
         std::string subscriberName;
         NotifiedQueue<remove_atomic_t<T>>* notifiedQueue = nullptr;
 };
+
+/*
+    SharedObject
+    -----------
+    This class is the main class for sharing an object in shared memory.
+    It opens a share memory space and opens a object of the template type in it.
+    It gives direct access to the object and shared and allows user to set its value.
+*/
+template <typename T>
+class SharedObject {
+    public:
+        // Constructor, open/create shared memory space with a Topic in it.
+        // Throws runtime_error when shared memory does not work.
+        SharedObject(std::string topicName_){
+            object = SharedMemoryManager<T>::openSharedMemoryObject(topicName_);
+            if(!object){
+                throw std::runtime_error("Failed to open shared memory topic: " + topicName_);
+            }
+        };
+
+        // returns raw value pointer to use it wherever someone wants.
+        T* rawValue(){
+            return object;
+        }
+
+        // Set the topic's value.
+        template<typename U>
+        void setValue(U&& value){
+            if constexpr (is_std_atomic<T>::value) {
+                object.store(value);
+            } else {
+                object = std::forward<U>(value);
+            }
+        };
+
+    private:
+        T* object = nullptr;
+};
+
 /*
     Topic
     -----------
@@ -378,12 +436,6 @@ class Topic{
         // Subscribes to the topic by creating a NotifiedQueue in shared memory
         // where the topic can add to the queue or simply notify for a change in value
         NotifiedQueue<remove_atomic_t<T>>* subscribe(std::string name){
-            // Handle name size
-            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
-                std::cerr << "Subscriber list is full or name is too long." << std::endl;
-                return nullptr;
-            }
-
             // Take a mutex to add to the list of subscribers
             if(pthread_mutex_lock(&m)==EOWNERDEAD){ 
                 // If a process dies with the mutex, the other one that gets the mutex will receive EOWNERDEAD
@@ -406,7 +458,13 @@ class Topic{
                     return pNotifiedQueue;
                 }
             }
-            
+
+            // Handle name size
+            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
+                std::cerr << "Subscriber list is full or name is too long." << std::endl;
+                return nullptr;
+            }
+
             // If the subscriber is new, add it to the subscriber's list
             NotifiedQueue<remove_atomic_t<T>>* pNotifiedQueue = SharedMemoryManager<T>::createSharedQueue(name);
             if(pNotifiedQueue==nullptr){
@@ -415,6 +473,49 @@ class Topic{
             }
             snprintf(subscriberListName[subscriberListIndex],sizeof(subscriberListName[subscriberListIndex]),"%s",name.c_str());
             subscriberListIndex++;
+            pthread_mutex_unlock(&m);
+            return pNotifiedQueue;
+        }
+
+        // Create a notified queue for a single subscriber
+        // The idea here is as soon as there's one subscription, we max out the number of subscribers
+        // The subscriber name is stored in the first element of the topic's subscriber list
+        NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* subscribeSingle(std::string name){
+            // Take a mutex to add to the list of subscribers
+            if(pthread_mutex_lock(&m)==EOWNERDEAD){
+                // If a process dies with the mutex, the other one that gets the mutex will receive EOWNERDEAD
+                // TODO : Handle this? might be a catastrophic failure
+                pthread_mutex_consistent(&m);
+            }
+
+            // Verify if the subscriber's name is already in the list of subscribers
+            // If so, return a pointer to it
+            if(std::string(subscriberListName[0]) == name){
+                //  NOTE :
+                //      When reopening the queue, we need to reinit the pthread_cond_t
+                //      because otherwise it freezes the publisher on ARM platforms.
+                NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* pNotifiedQueue = SharedMemoryManager<T>::openSharedSingleSubcriberQueue(name,true);
+                pthread_mutex_unlock(&m);
+                if(pNotifiedQueue==nullptr){
+                    return nullptr;
+                }
+                return pNotifiedQueue;
+            }
+
+            // Handle name size and if there's already one subscriber
+            if(subscriberListIndex>0 || name.size()>=nameMax){
+                std::cerr << "Single Subscriber list is full or name is too long." << std::endl;
+                return nullptr;
+            }
+
+            // If the subscriber is new, add it to the subscriber's list
+            NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* pNotifiedQueue = SharedMemoryManager<T>::createSharedSingleSubcriberQueue(name);
+            if(pNotifiedQueue==nullptr){
+                pthread_mutex_unlock(&m);
+                return nullptr;
+            }
+            snprintf(subscriberListName[0],sizeof(subscriberListName[0]),"%s",name.c_str());
+            subscriberListIndex = 1; // Close the subscription window
             pthread_mutex_unlock(&m);
             return pNotifiedQueue;
         }
@@ -451,6 +552,222 @@ class Topic{
         char name[nameMax] = {0};
         pthread_mutex_t m;
         
+};
+
+template <typename T>
+class SingleSubscriber{
+    public:
+
+        // Constructor, open/create shared memory space with a Topic in it.
+        // If doSubscribe = True, opens a queue and clears the queue to remove any previous data.
+        // Throws runtime_error when shared memory does not work.
+        SingleSubscriber(std::string topicName_,std::string subscriberName_){
+            topic = SharedMemoryManager<T>::openSharedMemoryTopic(topicName_);
+            if(topic == nullptr){
+                throw std::runtime_error("Failed to open shared memory topic: " + topicName_);
+            }
+            if(notifiedQueue!=nullptr){
+                return;
+            }
+
+            notifiedQueue = topic->subscribeSingle(subscriberName_);
+            if(notifiedQueue == nullptr){
+                throw std::runtime_error("Failed to open shared memory space with subscriberName: " + subscriberName_);
+            }
+
+            clearQueue();
+        };
+
+        bool clearQueue(){
+            notifiedQueue->clearQueue();
+            return true;
+        }
+
+        // returns raw value pointer to use it wherever someone wants.
+        T* rawValue(){
+            return &(topic->value);
+        }
+
+        // return a copy of the current stored value
+        remove_atomic_t<T> readValue(){
+            return topic->getValue();
+        }
+
+        // Attempt to read one value from the queue
+        // Returns nullopt if no value was in the queue.
+        std::optional<remove_atomic_t<T>> readOne(){
+            if(notifiedQueue == nullptr){return std::nullopt;}
+            return notifiedQueue->pop();
+        }
+
+        // Wait indefinitely for a new value signal and pop the latest value
+        // Returns nullopt if no value was in the queue.
+        std::optional<remove_atomic_t<T>> readWait(){
+            if(notifiedQueue == nullptr){return std::nullopt;}
+            return notifiedQueue->popWait();
+        }
+
+        // Wait for a new value signal for a set amout of time and pop the latest value.
+        // Will pop on signal, or on timeout.
+        // (Ex. time value : 1s,500ms,500us,500ns)
+        // Returns nullopt if no value was in the queue.
+        template <typename Rep, typename Period>
+        std::optional<remove_atomic_t<T>> readWait(std::chrono::duration<Rep, Period> duration){
+            if(notifiedQueue == nullptr){return std::nullopt;}
+            return notifiedQueue->popWait(duration);
+        }
+
+        // Wait indefinitely for a notification
+        void waitForNotify(){
+            if(notifiedQueue == nullptr){return;}
+            notifiedQueue->waitForNotify();
+        }
+
+        // Wait for a signal for a set amount of time (Ex. Value : 1s,500ms,500us,500ns)
+        template <typename Rep, typename Period>
+        void waitForNotify(std::chrono::duration<Rep, Period> duration){
+            if(notifiedQueue == nullptr){return;}
+            notifiedQueue->waitForNotify(duration);
+        }
+
+        // Destructor. Simply close the queue handle in shared memory,
+        // purposefully leaving all data in it.
+        ~SingleSubscriber(){
+            if(notifiedQueue!=nullptr){
+                NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>::closeQueueHandle(notifiedQueue);
+            }
+            if(topic!=nullptr){
+                Topic<T>::closeTopicHandle(topic);
+            }
+        }
+
+    private:
+        Topic<T>* topic = nullptr;
+        NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* notifiedQueue = nullptr;
+};
+
+template <typename T>
+class PublisherToSingleSubscriber{
+    public:
+        // Constructor, open/create shared memory space with a Topic in it.
+        // Throws runtime_error when shared memory does not work.
+        PublisherToSingleSubscriber(std::string topicName_){
+            topic = SharedMemoryManager<T>::openSharedMemoryTopic(topicName_);
+            if(!topic){
+                throw std::runtime_error("Failed to open shared memory topic: " + topicName_);
+            }
+            updateValueTemp();
+        };
+
+        // returns raw value pointer to use it wherever someone wants.
+        T* rawValue(){
+            return &(topic->value);
+        }
+
+        // Set the topic's value.
+        template<typename U>
+        void setValue(U&& value){
+            if constexpr (is_std_atomic<T>::value) {
+                topic->value.store(value);
+            } else {
+                topic->value = std::forward<U>(value);
+            }
+            updateValueTemp();
+        };
+
+        // return a copy of the current stored value
+        remove_atomic_t<T> readValue(){
+            return topic->getValue();
+        }
+
+        // Set the topic's value and push it into each subscriber's queue
+        // Throws runtime_error if there's a new subscriber and it fails to open the the shared memory
+        template<typename U>
+        void publish(U&& value){
+            setValue(value);
+            updateSubscriberQueues();
+            if(subscriberQueue != nullptr){
+                subscriberQueue->pushNotify(value);
+            }
+        };
+
+        // Push a value into each subscriber's queue, without notification.
+        // Throws runtime_error if there's a new subscriber and it fails to open the the shared memory
+        template<typename U>
+        void push(U&& value){
+            updateSubscriberQueues();
+            if(subscriberQueue != nullptr){
+                subscriberQueue->push(value);
+            }
+        };
+
+        // Push a value into each subscriber's queue, without notification.
+        // Throws runtime_error if there's a new subscriber and it fails to open the the shared memory
+        template<typename U>
+        void setValueAndPush(U&& value){
+            setValue(value);
+            push(value);
+        };
+
+        // Set the topic's value and push it into subsciber's queue if changed
+        template<typename U>
+        void publishOnChange(U&& value){
+            if(valueTemp!=value){
+                publish(value);
+            }
+        };
+
+        // Set the topic's value and notify subscriber's on change
+        template<typename U>
+        void setValueAndNotifyOnChange(U&& value){
+            if(valueTemp!=value){
+                setValue(value);
+                notifyAll();
+            }
+        };
+
+        // Notify all subscribers without setting the value.
+        void notifyAll(){
+            updateSubscriberQueues();
+            if(subscriberQueue != nullptr){
+                subscriberQueue->notify();
+            }
+        };
+
+        // Destructor. Simply close the queue handle in shared memory,
+        // purposefully leaving all data in it.
+        ~PublisherToSingleSubscriber(){
+            if(subscriberQueue != nullptr){
+                NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>::closeQueueHandle(subscriberQueue);
+            }
+            if(topic!=nullptr){
+                Topic<T>::closeTopicHandle(topic);
+            }
+        }
+
+    private:
+        Topic<T>* topic = nullptr;
+        T valueTemp;
+        NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* subscriberQueue = nullptr;
+
+        // Check the subscriber's list in the Topic object and update the publisher's list.
+        void updateSubscriberQueues(){
+            if (subscriberQueue != nullptr) {
+                return;
+            }
+            int listIndex = topic->subscriberListIndex;
+            if(listIndex > 0){
+                subscriberQueue = SharedMemoryManager<T>::openSharedSingleSubcriberQueue(topic->subscriberListName[0]);
+                if(subscriberQueue==nullptr){
+                    throw std::runtime_error("Failed to open shared memory space for new single subscriber");
+                }
+            }
+        }
+
+        // Update the temporary value to monitor change for publishOnChange() and setValueAndNotifyOnChange()
+        void updateValueTemp(){
+            valueTemp = topic->getValue();
+        }
 };
 
 
@@ -510,6 +827,48 @@ class SharedMemoryManager{
             return notifiedQueue; 
         }
 
+        static NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* createSharedSingleSubcriberQueue(std::string name){
+            // Open shared memory space
+            int shmFd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0666); // create the shared memory object
+            if(shmFd == -1) {
+                perror("shm_open");
+                return nullptr;
+            }
+
+            // Configure the size of the shared memory object
+            int res = ftruncate(shmFd, sizeof(NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>));
+            if(res == -1) {
+                perror("ftruncate");
+                close(shmFd);
+                return nullptr;
+            }
+            void* pNotifiedQueue = mmap(0, sizeof(NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
+            close(shmFd);
+            if (pNotifiedQueue == MAP_FAILED) {
+                perror("mmap");
+                return nullptr;
+            }
+            new(pNotifiedQueue)NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>; // Create a Queue in the shared memory space
+            return (NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>*)pNotifiedQueue;
+        };
+
+        static NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* openSharedSingleSubcriberQueue(std::string name,bool initCondition = false){
+            int shmFd = shm_open(name.c_str(), O_RDWR, 0666);
+            void* pNotifiedQueue = mmap(0, sizeof(NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+            close(shmFd);
+            if (pNotifiedQueue == MAP_FAILED) {
+                perror("mmap");
+                return nullptr;
+            }
+            NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>* notifiedQueue = static_cast<NotifiedQueue<remove_atomic_t<T>, LockFreeReaderQueue>*>(pNotifiedQueue);
+            if(initCondition){
+                // Initialize the condition variable to make it valid
+                // if it was held previously
+                notifiedQueue->init();
+            }
+            return notifiedQueue;
+        }
+
         // Opens a posix shared memory space and interpret it as a Topic
         static Topic<T>* openSharedMemoryTopic(std::string topicName){
             // Try to open the shared memory
@@ -552,17 +911,59 @@ class SharedMemoryManager{
             return topic;
         }
 
+        // Opens a posix shared memory space and interpret it as the given Object type
+        static T* openSharedMemoryObject(std::string topicName){
+            // Try to open the shared memory
+            int shmFd = shm_open(topicName.c_str(), O_RDWR, 0666);
+            T* object = nullptr;
+            // If it fails, it means it does not exists.
+            // Create it
+            if(shmFd==-1){
+                // Open shared memory space
+                shmFd = shm_open(topicName.c_str(), O_CREAT | O_RDWR, 0666);
+                if(shmFd == -1){
+                    perror("shm_open");
+                    return nullptr;
+                }
+                // Configure the size of the shared memory object
+                int ret = ftruncate(shmFd, sizeof(T));
+                if(ret == -1) {
+                    perror("ftruncate");
+                    close(shmFd);
+                    return nullptr;
+                }
+                void* pObject = mmap(0, sizeof(T), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
+                close(shmFd);
+                if (pObject == MAP_FAILED) {
+                    perror("mmap");
+                    return nullptr;
+                }
+                object = new(pObject)T(); // Create a Queue in the shared memory space
+            }
+            // If it succeeds, map the memory to the object
+            else{
+                void* pObject = mmap(0, sizeof(T), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+                close(shmFd);
+                if (pObject == MAP_FAILED) {
+                    perror("mmap");
+                    return nullptr;
+                }
+                object = static_cast<T*>(pObject);
+            }
+            return object;
+        }
+
 };
 
 /*
     NotifiedQueue
     -----------
-    Contains a LockFreeQueue and condition_variable, and everything to handle them.
+    Contains a LockFreeQueue or LockFreeReaderQueue and condition_variable, and everything to handle them.
 */
-template<typename T>
+template<typename T, template<class, size_t> class QueueType, size_t N>
 class NotifiedQueue{
     public:
-        LockFreeQueue<T,2048> queue; // size 2048 is arbitrary
+        QueueType<T, N> queue; // size 2048 is arbitrary
 
         NotifiedQueue(){
             init();
@@ -729,7 +1130,7 @@ class NotifiedQueue{
         };
 
         // Unmap queue's shared memory for the current process
-        static bool closeQueueHandle(NotifiedQueue<T>* queue) {
+        static bool closeQueueHandle(NotifiedQueue<T, QueueType, N>* queue) {
             if (queue) {
                 if (munmap(queue, sizeof(NotifiedQueue<T>)) == -1) {
                     perror("munmap failed");
@@ -810,6 +1211,79 @@ class LockFreeQueue{
         }
 
         auto size() const noexcept { return size_.load();}
+};
+
+// Modified version of "C++ High Performance" book's Lock-free queue
+// Added a mutex on writers so we can have multiple writers, one reader.
+template <class T, size_t N>
+class LockFreeReaderQueue {
+    std::array<T, N> buffer_{};
+    std::atomic<size_t> size_{0};
+    size_t read_pos_{0};
+    size_t write_pos_{0};
+    static_assert(std::atomic<size_t>::is_always_lock_free);
+
+   private:
+    bool do_push(auto&& t) {
+        if (size_.load() == N) {
+            return false;
+        }
+        buffer_[write_pos_] = std::forward<decltype(t)>(t);
+        write_pos_ = (write_pos_ + 1) % N;
+        size_.fetch_add(1);
+        return true;
+    }
+
+   public:
+    pthread_mutex_t mutex_write_;
+
+    LockFreeReaderQueue() {
+        // Initialize mutex
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);  // Enable inter-process sharing
+        pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+        pthread_mutex_init(&mutex_write_, &attr);
+    }
+
+    bool push(T&& t) {
+        if (pthread_mutex_lock(&mutex_write_) == EOWNERDEAD) {
+            // If a process dies with the mutex, the other one that gets the mutex will receive EOWNERDEAD
+            // TODO : Verify if the object is consistent and not broken here
+            pthread_mutex_consistent(&mutex_write_);
+        }
+        if (do_push(std::move(t))) {
+            pthread_mutex_unlock(&mutex_write_);
+            return true;
+        } else {
+            pthread_mutex_unlock(&mutex_write_);
+            return false;
+        }
+    }
+
+    bool push(const T& t) {
+        pthread_mutex_lock(&mutex_write_);
+        if (do_push(t)) {  // Prevent creating a variable
+            pthread_mutex_unlock(&mutex_write_);
+            return true;
+        } else {
+            pthread_mutex_unlock(&mutex_write_);
+            return false;
+        }
+    }
+
+    auto pop() -> std::optional<T> {
+        auto val = std::optional<T>{};
+        if (size_.load() > 0) {
+            val = std::move(buffer_[read_pos_]);
+            read_pos_ = (read_pos_ + 1) % N;
+            size_.fetch_sub(1);
+        }
+
+        return val;
+    }
+
+    auto size() const noexcept { return size_.load(); }
 };
 } // namespace
 
