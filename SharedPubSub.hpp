@@ -378,11 +378,6 @@ class Topic{
         // Subscribes to the topic by creating a NotifiedQueue in shared memory
         // where the topic can add to the queue or simply notify for a change in value
         NotifiedQueue<remove_atomic_t<T>>* subscribe(std::string name){
-            // Handle name size
-            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
-                std::cerr << "Subscriber list is full or name is too long." << std::endl;
-                return nullptr;
-            }
 
             // Take a mutex to add to the list of subscribers
             if(pthread_mutex_lock(&m)==EOWNERDEAD){ 
@@ -405,6 +400,12 @@ class Topic{
                     }
                     return pNotifiedQueue;
                 }
+            }
+
+            // Handle name size
+            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
+                std::cerr << "Subscriber list is full or name is too long." << std::endl;
+                return nullptr;
             }
             
             // If the subscriber is new, add it to the subscriber's list
