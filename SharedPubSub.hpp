@@ -696,7 +696,7 @@ class NotifiedQueue{
             syscall(SYS_futex,
             reinterpret_cast<uint32_t*>(queue.pSize()),
             FUTEX_WAKE,
-            queue.size(),
+            1,
             nullptr, nullptr, 0);
         };
 
