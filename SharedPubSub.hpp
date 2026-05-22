@@ -319,6 +319,19 @@ class Subscriber {
             return notifiedQueue->popWait(duration);
         }
 
+        // Wait indefinitely for a notification
+        void waitForNotify(){
+            if(notifiedQueue == nullptr){return;}
+            notifiedQueue->waitForNotify();
+        }
+
+        // Wait for a signal for a set amount of time (Ex. Value : 1s,500ms,500us,500ns)
+        template <typename Rep, typename Period>
+        void waitForNotify(std::chrono::duration<Rep, Period> duration){
+            if(notifiedQueue == nullptr){return;}
+            notifiedQueue->waitForNotify(duration);
+        }
+
         // Destructor. Simply close the queue handle in shared memory, 
         // purposefully leaving all data in it.
         ~Subscriber(){
@@ -653,12 +666,17 @@ class NotifiedQueue{
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC, &ts);
             add_timespec(&ts, nsec);
+            auto current = waitFlag.load(std::memory_order_acquire);
 
-            while (queue.size() == 0) {
+            if(queue.size()>0){
+                return queue.pop();
+            }
+
+            while (waitFlag.load(std::memory_order_acquire) == current) {
                 long ret = syscall(SYS_futex,
                                 reinterpret_cast<uint32_t*>(queue.pSize()),
                                 FUTEX_WAIT_BITSET,
-                                0,
+                                current,
                                 &ts, 
                                 nullptr, 
                                 FUTEX_BITSET_MATCH_ANY); // Required for bitset wait
@@ -677,12 +695,18 @@ class NotifiedQueue{
         // and pop the latest value.
         // Returns nullopt if no value was in the queue.
         std::optional<T> popWait(){
-            // Loop to handle spurious wakeups and signals
-            while (queue.size() == 0) {
+
+            auto current = waitFlag.load(std::memory_order_acquire);
+
+            if(queue.size()>0){
+                return queue.pop();
+            }
+
+            while (waitFlag.load(std::memory_order_acquire) == current) {
                 long ret = syscall(SYS_futex,
-                reinterpret_cast<uint32_t*>(queue.pSize()),
+                reinterpret_cast<uint32_t*>(&waitFlag),
                 FUTEX_WAIT,
-                0,
+                current,
                 nullptr, nullptr, 0);
                 if (ret == -1 && errno == EAGAIN) {
                     break;
@@ -692,13 +716,60 @@ class NotifiedQueue{
             return queue.pop();
         };
 
+        // Wait indefinitely for a new signal
+        void waitForNotify(){
+            auto current = waitFlag.load(std::memory_order_acquire);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                reinterpret_cast<uint32_t*>(&waitFlag),
+                FUTEX_WAIT,
+                current,
+                nullptr, nullptr, 0);
+                if (ret == -1 && errno == EAGAIN) {
+                    break;
+                }
+            }
+            return;
+        };
+
+        // Wait for a new signal for a set amout of time.
+        // Will return on signal or timeout.
+        template <typename Rep, typename Period>
+        void waitForNotify(std::chrono::duration<Rep, Period> duration){
+
+            int64_t nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            add_timespec(&ts, nsec);
+            auto current = waitFlag.load(std::memory_order_acquire);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                                reinterpret_cast<uint32_t*>(queue.pSize()),
+                                FUTEX_WAIT_BITSET,
+                                current,
+                                &ts, 
+                                nullptr, 
+                                FUTEX_BITSET_MATCH_ANY); // Required for bitset wait
+
+                if (ret == -1) {
+                    if (errno == ETIMEDOUT || errno == EAGAIN) {
+                        break; 
+                    }
+                }
+            }
+
+            return;
+        };
+
         void notify(){
+            waitFlag.fetch_add(1,std::memory_order_release);
             syscall(SYS_futex,
-            reinterpret_cast<uint32_t*>(queue.pSize()),
+            reinterpret_cast<uint32_t*>(&waitFlag),
             FUTEX_WAKE,
             1,
             nullptr, nullptr, 0);
         };
+        
 
         // Unmap queue's shared memory for the current process
         static bool closeQueueHandle(NotifiedQueue<T>* queue) {
@@ -717,7 +788,8 @@ class NotifiedQueue{
         };
 
     private:
-    
+        std::atomic<uint32_t> waitFlag{0};
+        
         void add_timespec(struct timespec *ts, int64_t nanoseconds) {
             int64_t total_nsec = static_cast<int64_t>(ts->tv_nsec) + nanoseconds;
             while (total_nsec < 0) {
@@ -736,7 +808,7 @@ class NotifiedQueue{
 template <class T, size_t N>
 class LockFreeQueue{
     std::array<T,N> buffer_{};
-    std::atomic<uint32_t> size_{0};
+    std::atomic<size_t> size_{0};
     size_t read_pos_{0};
     size_t write_pos_{0};
     static_assert(std::atomic<size_t>::is_always_lock_free);
