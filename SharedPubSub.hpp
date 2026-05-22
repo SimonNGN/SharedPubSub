@@ -358,6 +358,7 @@ class Topic{
         T value;
         char subscriberListName[subscriberListMax][nameMax] = {};
         std::atomic<int> subscriberListIndex{0};
+        std::atomic<bool> ready{0};
 
         // Constructor
         // Throws if name size is greater than nameMax
@@ -538,14 +539,14 @@ class SharedMemoryManager{
                         return nullptr;
                     }
                     topic = new(pTopic)Topic<T>(topicName); // Create a Queue in the shared memory space
+                    topic->ready.store(1,std::memory_order_release);
                     return topic;
                 }
                 else if(errno == EEXIST){
                     // Lost a creation race condition
                     // open and wait ftruncate to finish
                     struct stat shmStat;
-                    auto startWait = std::chrono::steady_clock::now();
-                    auto timeout = std::chrono::seconds(2);
+                    auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 
                     // Try to reopen the topic as read
                     shmFd = shm_open(topicName.c_str(), O_RDWR, 0666);
@@ -567,7 +568,7 @@ class SharedMemoryManager{
                         }
 
                         // Check for timeout
-                        if (std::chrono::steady_clock::now() - startWait > timeout) {
+                        if (std::chrono::steady_clock::now() > timeout) {
                             std::cerr << "Timeout waiting for creator to ftruncate.\n";
                             close(shmFd);
                             // Clean up the broken shared memory so the next run can succeed
@@ -575,7 +576,7 @@ class SharedMemoryManager{
                             return nullptr;
                         }
 
-                        std::this_thread::sleep_for(std::chrono::milliseconds(5)); 
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1)); 
                     }
                 }
                 else{
@@ -584,7 +585,7 @@ class SharedMemoryManager{
                 }
 
             }
-
+            
             // If it succeeds, map the memory to the object
             void* pTopic = mmap(0, sizeof(Topic<T>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
             close(shmFd);
@@ -593,7 +594,14 @@ class SharedMemoryManager{
                 return nullptr;
             }
             topic = static_cast<Topic<T>*>(pTopic);
-            
+
+            auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while(topic->ready.load(std::memory_order_acquire) == 0){
+                if(std::chrono::steady_clock::now() > timeout){
+                    return nullptr;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
             return topic;
         }
 
