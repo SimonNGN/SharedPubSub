@@ -501,6 +501,12 @@ class SharedMemoryManager{
         // Returns a pointer of the queue
         static NotifiedQueue<remove_atomic_t<T>>* openSharedQueue(std::string name,bool initCondition = false){
             int shmFd = shm_open(name.c_str(), O_RDWR, 0666);
+            
+            if(shmFd==-1){
+                perror("shm_open");
+                return nullptr;
+            }
+
             void* pNotifiedQueue = mmap(0, sizeof(NotifiedQueue<remove_atomic_t<T>>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
             close(shmFd);
             if (pNotifiedQueue == MAP_FAILED) {
