@@ -30,6 +30,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <type_traits>
+#include <cerrno>
 
 /*
     Main functions to use the library :
@@ -469,7 +470,7 @@ class SharedMemoryManager{
         // If the desired data object is atomic typed, it creates a queue of the non atomic version
         static NotifiedQueue<remove_atomic_t<T>>* createSharedQueue(std::string name){
             // Open shared memory space
-            int shmFd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0666); // create the shared memory object
+            int shmFd = shm_open(name.c_str(), O_CREAT | O_RDWR | O_EXCL, 0666); // create the shared memory object
             if(shmFd == -1) {
                 perror("shm_open");
                 return nullptr;
@@ -520,36 +521,79 @@ class SharedMemoryManager{
             // Create it
             if(shmFd==-1){
                 // Open shared memory space
-                shmFd = shm_open(topicName.c_str(), O_CREAT | O_RDWR, 0666);
-                if(shmFd == -1){
+                shmFd = shm_open(topicName.c_str(), O_CREAT | O_RDWR | O_EXCL, 0666);
+                if(shmFd != -1){
+                    // Created the shm space
+                    // Configure the size of the shared memory object
+                    int ret = ftruncate(shmFd, sizeof(Topic<T>));
+                    if(ret == -1) {
+                        perror("ftruncate");
+                        close(shmFd);
+                        return nullptr;
+                    }
+                    void* pTopic = mmap(0, sizeof(Topic<T>), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
+                    close(shmFd);
+                    if (pTopic == MAP_FAILED) {
+                        perror("mmap");
+                        return nullptr;
+                    }
+                    topic = new(pTopic)Topic<T>(topicName); // Create a Queue in the shared memory space
+                    return topic;
+                }
+                else if(errno == EEXIST){
+                    // Lost a creation race condition
+                    // open and wait ftruncate to finish
+                    struct stat shmStat;
+                    auto startWait = std::chrono::steady_clock::now();
+                    auto timeout = std::chrono::seconds(2);
+
+                    // Try to reopen the topic as read
+                    shmFd = shm_open(topicName.c_str(), O_RDWR, 0666);
+                    if(shmFd==-1){
+                        perror("shm_open");
+                        return nullptr;
+                    }
+
+                    while (true) {
+                        if (fstat(shmFd, &shmStat) == -1) {
+                            perror("fstat");
+                            close(shmFd);
+                            return nullptr;
+                        }
+                        
+                        // If truncate has finished
+                        if (shmStat.st_size >= sizeof(Topic<T>)) {
+                            break;
+                        }
+
+                        // Check for timeout
+                        if (std::chrono::steady_clock::now() - startWait > timeout) {
+                            std::cerr << "Timeout waiting for creator to ftruncate.\n";
+                            close(shmFd);
+                            // Clean up the broken shared memory so the next run can succeed
+                            shm_unlink(topicName.c_str()); 
+                            return nullptr;
+                        }
+
+                        std::this_thread::sleep_for(std::chrono::milliseconds(5)); 
+                    }
+                }
+                else{
                     perror("shm_open");
                     return nullptr;
                 }
-                // Configure the size of the shared memory object
-                int ret = ftruncate(shmFd, sizeof(Topic<T>));
-                if(ret == -1) {
-                    perror("ftruncate");
-                    close(shmFd);
-                    return nullptr;
-                }
-                void* pTopic = mmap(0, sizeof(Topic<T>), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
-                close(shmFd);
-                if (pTopic == MAP_FAILED) {
-                    perror("mmap");
-                    return nullptr;
-                }
-                topic = new(pTopic)Topic<T>(topicName); // Create a Queue in the shared memory space
+
             }
+
             // If it succeeds, map the memory to the object
-            else{
-                void* pTopic = mmap(0, sizeof(Topic<T>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-                close(shmFd);
-                if (pTopic == MAP_FAILED) {
-                    perror("mmap");
-                    return nullptr;
-                }
-                topic = static_cast<Topic<T>*>(pTopic);
+            void* pTopic = mmap(0, sizeof(Topic<T>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+            close(shmFd);
+            if (pTopic == MAP_FAILED) {
+                perror("mmap");
+                return nullptr;
             }
+            topic = static_cast<Topic<T>*>(pTopic);
+            
             return topic;
         }
 
