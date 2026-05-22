@@ -482,12 +482,14 @@ class SharedMemoryManager{
             if(res == -1) {
                 perror("ftruncate");
                 close(shmFd);
+                shm_unlink(name.c_str());
                 return nullptr;
             }
-            void* pNotifiedQueue = mmap(0, sizeof(NotifiedQueue<remove_atomic_t<T>>), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
+            void* pNotifiedQueue = mmap(0, sizeof(NotifiedQueue<remove_atomic_t<T>>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
             close(shmFd);
             if (pNotifiedQueue == MAP_FAILED) {
                 perror("mmap");
+                shm_unlink(name.c_str());
                 return nullptr;
             }
             new(pNotifiedQueue)NotifiedQueue<remove_atomic_t<T>>; // Create a Queue in the shared memory space
@@ -530,12 +532,14 @@ class SharedMemoryManager{
                     if(ret == -1) {
                         perror("ftruncate");
                         close(shmFd);
+                        shm_unlink(topicName.c_str());
                         return nullptr;
                     }
-                    void* pTopic = mmap(0, sizeof(Topic<T>), PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
+                    void* pTopic = mmap(0, sizeof(Topic<T>), PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0); // memory map the shared memory object
                     close(shmFd);
                     if (pTopic == MAP_FAILED) {
                         perror("mmap");
+                        shm_unlink(topicName.c_str());
                         return nullptr;
                     }
                     topic = new(pTopic)Topic<T>(topicName); // Create a Queue in the shared memory space
