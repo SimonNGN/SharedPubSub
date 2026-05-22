@@ -674,7 +674,7 @@ class NotifiedQueue{
 
             while (waitFlag.load(std::memory_order_acquire) == current) {
                 long ret = syscall(SYS_futex,
-                                reinterpret_cast<uint32_t*>(queue.pSize()),
+                                reinterpret_cast<uint32_t*>(&waitFlag),
                                 FUTEX_WAIT_BITSET,
                                 current,
                                 &ts, 
@@ -770,7 +770,6 @@ class NotifiedQueue{
             nullptr, nullptr, 0);
         };
         
-
         // Unmap queue's shared memory for the current process
         static bool closeQueueHandle(NotifiedQueue<T>* queue) {
             if (queue) {
@@ -845,7 +844,6 @@ class LockFreeQueue{
         }
 
         auto size() const noexcept { return size_.load(std::memory_order_acquire);}
-        auto pSize() { return &size_;}
 };
 
 } // namespace
