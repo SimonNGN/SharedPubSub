@@ -736,19 +736,19 @@ class NotifiedQueue{
 template <class T, size_t N>
 class LockFreeQueue{
     std::array<T,N> buffer_{};
-    std::atomic<size_t> size_{0};
+    std::atomic<uint32_t> size_{0};
     size_t read_pos_{0};
     size_t write_pos_{0};
     static_assert(std::atomic<size_t>::is_always_lock_free);
 
     private:
         bool do_push(auto&& t){
-            if(size_.load()==N){
+            if(size_.load(std::memory_order_acquire)==N){
                 return false;
             }
             buffer_[write_pos_] = std::forward<decltype(t)>(t);
             write_pos_ = (write_pos_+1) % N;
-            size_++;
+            size_.fetch_add(1,std::memory_order_release);
             return true;
         }
 
@@ -764,15 +764,15 @@ class LockFreeQueue{
 
         auto pop() -> std::optional<T> {
             auto val = std::optional<T>{};
-            if(size_.load()>0){
+            if(size_.load(std::memory_order_acquire)>0){
                 val = std::move(buffer_[read_pos_]);
                 read_pos_ = (read_pos_ + 1) % N;
-                size_--;
+                size_.fetch_sub(1,std::memory_order_release)
             }
             return val;
         }
 
-        auto size() const noexcept { return size_.load();}
+        auto size() const noexcept { return size_.load(std::memory_order_acquire);}
         auto pSize() { return &size_;}
 };
 
