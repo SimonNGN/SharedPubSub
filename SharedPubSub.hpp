@@ -767,7 +767,7 @@ class LockFreeQueue{
             if(size_.load(std::memory_order_acquire)>0){
                 val = std::move(buffer_[read_pos_]);
                 read_pos_ = (read_pos_ + 1) % N;
-                size_.fetch_sub(1,std::memory_order_release)
+                size_.fetch_sub(1,std::memory_order_release);
             }
             return val;
         }
