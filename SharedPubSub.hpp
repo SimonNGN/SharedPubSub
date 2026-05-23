@@ -233,15 +233,16 @@ class Publisher {
         void updateSubscriberQueues(){
             int listIndex = topic->subscriberListIndex;
             int queueCount = subscriberQueueCount;
+            std::cerr << queueCount << " " << listIndex << std::endl;
             if(queueCount<listIndex){
                 for(int i=subscriberQueueCount;i<listIndex;++i){
                     subscriberQueues[i] = SharedMemoryManager<T>::openSharedQueue(topic->subscriberListName[i]);
                     if(subscriberQueues[i]==nullptr){
                         throw std::runtime_error("Failed to open shared memory space for new subscriber");
                     }
+                    subscriberQueueCount = i + 1;
                 }
             }
-            subscriberQueueCount = listIndex;
         }
 
         // Update the temporary value to monitor change for publishOnChange() and setValueAndNotifyOnChange()
@@ -632,6 +633,7 @@ class SharedMemoryManager{
             timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
             while(topic->ready.load(std::memory_order_acquire) == 0){
                 if(std::chrono::steady_clock::now() > timeout){
+                    munmap(pTopic,sizeof(Topic<T>));
                     return nullptr;
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
