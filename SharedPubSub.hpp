@@ -23,14 +23,21 @@
 #include <cstddef>
 #include <fcntl.h>
 #include <iostream>
+#include <linux/futex.h>
 #include <optional>
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <type_traits>
 #include <cerrno>
+#include <thread>
+
+#ifndef FUTEX_BITSET_MATCH_ANY
+#define FUTEX_BITSET_MATCH_ANY 0xffffffff
+#endif
 
 /*
     Main functions to use the library :
@@ -220,7 +227,7 @@ class Publisher {
             int listIndex = topic->subscriberListIndex;
             int queueCount = subscriberQueueCount;
             if(queueCount<listIndex){
-                for(int i=subscriberQueueCount;i<topic->subscriberListIndex;++i){
+                for(int i=subscriberQueueCount;i<listIndex;++i){
                     subscriberQueues[i] = SharedMemoryManager<T>::openSharedQueue(topic->subscriberListName[i]);
                     if(subscriberQueues[i]==nullptr){
                         throw std::runtime_error("Failed to open shared memory space for new subscriber");
@@ -282,7 +289,9 @@ class Subscriber {
         }
 
         bool clearQueue(){
-            notifiedQueue->clearQueue();
+            if(notifiedQueue!=nullptr){
+                notifiedQueue->clearQueue();
+            }
             return true;
         }
 
@@ -364,7 +373,7 @@ class Topic{
         // Throws if name size is greater than nameMax
         Topic(std::string name){
 
-            if(name.size()>nameMax){
+            if(name.size()>=nameMax){
                 throw std::runtime_error("Topic name must be inferior to " + std::to_string(nameMax));
             }
             snprintf(this->name,sizeof(this->name),"%s",name.c_str()); 
@@ -375,6 +384,7 @@ class Topic{
             pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED); // Enable inter-process sharing
             pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
             pthread_mutex_init(&m, &attr);
+            pthread_mutexattr_destroy(&attr);
         }
 
         // Subscribes to the topic by creating a NotifiedQueue in shared memory
@@ -395,7 +405,7 @@ class Topic{
                     //  NOTE :
                     //      When reopening the queue, we need to reinit the pthread_cond_t
                     //      because otherwise it freezes the publisher on ARM platforms.
-                    NotifiedQueue<remove_atomic_t<T>>* pNotifiedQueue = SharedMemoryManager<T>::openSharedQueue(name,true);
+                    NotifiedQueue<remove_atomic_t<T>>* pNotifiedQueue = SharedMemoryManager<T>::openSharedQueue(name);
                     pthread_mutex_unlock(&m);
                     if(pNotifiedQueue==nullptr){
                         return nullptr;
@@ -405,8 +415,13 @@ class Topic{
             }
 
             // Handle name size
-            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
-                std::cerr << "Subscriber list is full or name is too long." << std::endl;
+            if(name.size()>=nameMax){
+                std::cerr << "Name is too long." << std::endl;
+                pthread_mutex_unlock(&m);
+                return nullptr;
+            }
+            if(subscriberListIndex>=subscriberListMax){
+                std::cerr << "Subscriber list is full" << std::endl;
                 pthread_mutex_unlock(&m);
                 return nullptr;
             }
@@ -499,7 +514,7 @@ class SharedMemoryManager{
 
         // Opens a posix shared memory space and interpret it as a NotifiedQueue
         // Returns a pointer of the queue
-        static NotifiedQueue<remove_atomic_t<T>>* openSharedQueue(std::string name,bool initCondition = false){
+        static NotifiedQueue<remove_atomic_t<T>>* openSharedQueue(std::string name){
             int shmFd = shm_open(name.c_str(), O_RDWR, 0666);
             
             if(shmFd==-1){
@@ -514,11 +529,6 @@ class SharedMemoryManager{
                 return nullptr;
             }
             NotifiedQueue<remove_atomic_t<T>>* notifiedQueue = static_cast<NotifiedQueue<remove_atomic_t<T>>*>(pNotifiedQueue);
-            if(initCondition){
-                // Initialize the condition variable to make it valid
-                // if it was held previously
-                notifiedQueue->init();
-            }
             return notifiedQueue; 
         }
 
@@ -628,9 +638,7 @@ class NotifiedQueue{
     public:
         LockFreeQueue<T,2048> queue; // size 2048 is arbitrary
 
-        NotifiedQueue(){
-            init();
-        }
+        NotifiedQueue(){}
 
         // Add data to the queue
         void push(T data){
@@ -643,27 +651,6 @@ class NotifiedQueue{
             notify();
         };
 
-        // Initialize the mutex and condition variable
-        void init(){
-            // Create and initialize attributes
-            pthread_mutexattr_t mutex_attr;
-            pthread_condattr_t cond_attr;
-            pthread_mutexattr_init(&mutex_attr);
-            pthread_condattr_init(&cond_attr);
-            
-            // Set attributes
-            pthread_condattr_setclock(&cond_attr, CLOCK_MONOTONIC);             // Set clock type for the condition wait timeout
-            pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);  // Makes the mutex shareable
-            pthread_mutexattr_setrobust(&mutex_attr, PTHREAD_MUTEX_ROBUST);     // Makes it so that we can recover from dropped mutex
-            pthread_condattr_setpshared(&cond_attr, PTHREAD_PROCESS_SHARED);    // Makes the condition variable sharable
-            pthread_mutex_init(&mutex, &mutex_attr);                            // Initialize/reset the mutex
-            pthread_cond_init(&condition, &cond_attr);                          // Initialize/reset the condition variable
-
-            // Clean the attributes
-            pthread_mutexattr_destroy(&mutex_attr);
-            pthread_condattr_destroy(&cond_attr);
-        }
-
         // Pops one value
         // Returns nullopt if no value in the queue
         std::optional<T> pop(){
@@ -672,49 +659,44 @@ class NotifiedQueue{
 
         // Clear the queue of all values
         void clearQueue(){
-            if (pthread_mutex_lock(&mutex) == EOWNERDEAD) {
-                // lock was lost by the last process. flush the queue.
-                
-                pthread_mutex_consistent(&mutex);
-            }
             while(queue.size()>0){
                 queue.pop();
             }
-            pthread_mutex_unlock(&mutex);
         }
 
         // Pop a value if something is in the queue,
         // or wait for a new signal for a set amout of time and pop the latest value.
         // Will pop on signal, or on timeout.
         // (Ex. time value : 1s,500ms,500us,500ns)
-        // Returns nullopt if no value was in the queue.
+        // Returns nullopt if no value was in the queue.notifiedQueue
         template <typename Rep, typename Period>
         std::optional<T> popWait(std::chrono::duration<Rep, Period> duration){
-
             int64_t nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
             struct timespec ts;
-
-            if (pthread_mutex_lock(&mutex) == EOWNERDEAD) {
-                // lock was lost by the last process. flush the queue.
-                while(queue.size()>0){
-                    queue.pop();
-                }
-                pthread_mutex_consistent(&mutex);
-            }
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            add_timespec(&ts, nsec);
+            auto current = waitFlag.load(std::memory_order_acquire);
 
             if(queue.size()>0){
-                pthread_mutex_unlock(&mutex);
                 return queue.pop();
             }
 
-            clock_gettime(CLOCK_MONOTONIC, &ts);
-            add_timespec(&ts, nsec);
-            if(pthread_cond_timedwait(&condition,&mutex,&ts) == EOWNERDEAD){
-                // Unlikely to end here because of previous check
-                pthread_mutex_consistent(&mutex);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                                reinterpret_cast<uint32_t*>(&waitFlag),
+                                FUTEX_WAIT_BITSET,
+                                current,
+                                &ts, 
+                                nullptr, 
+                                FUTEX_BITSET_MATCH_ANY); // Required for bitset wait
+
+                if (ret == -1) {
+                    if (errno == ETIMEDOUT || errno == EAGAIN) {
+                        break; 
+                    }
+                }
             }
-            
-            pthread_mutex_unlock(&mutex);
+
             return queue.pop();
         };
 
@@ -722,42 +704,40 @@ class NotifiedQueue{
         // and pop the latest value.
         // Returns nullopt if no value was in the queue.
         std::optional<T> popWait(){
-            if (pthread_mutex_lock(&mutex) == EOWNERDEAD) {
-                // lock was lost by the last process. flush the queue.
-                while(queue.size()>0){
-                    queue.pop();
-                }
-                pthread_mutex_consistent(&mutex);
-            }
-            // If the queue has something in it, pop the value without waiting
+
+            auto current = waitFlag.load(std::memory_order_acquire);
+
             if(queue.size()>0){
-                pthread_mutex_unlock(&mutex);
                 return queue.pop();
             }
 
-            if(pthread_cond_wait(&condition,&mutex) == EOWNERDEAD){
-                // Unlikely to end here because of previous check
-                pthread_mutex_consistent(&mutex);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                reinterpret_cast<uint32_t*>(&waitFlag),
+                FUTEX_WAIT,
+                current,
+                nullptr, nullptr, 0);
+                if (ret == -1 && errno == EAGAIN) {
+                    break;
+                }
             }
-            
-            pthread_mutex_unlock(&mutex);
+
             return queue.pop();
         };
 
         // Wait indefinitely for a new signal
         void waitForNotify(){
-
-            // Make the mutex consistent if previous thread died while holding it.
-            if (pthread_mutex_lock(&mutex) == EOWNERDEAD) {
-                pthread_mutex_consistent(&mutex);
+            auto current = waitFlag.load(std::memory_order_acquire);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                reinterpret_cast<uint32_t*>(&waitFlag),
+                FUTEX_WAIT,
+                current,
+                nullptr, nullptr, 0);
+                if (ret == -1 && errno == EAGAIN) {
+                    break;
+                }
             }
-
-            // Wait for notify
-            if(pthread_cond_wait(&condition,&mutex) == EOWNERDEAD){
-                // Unlikely to end here because of previous check
-                pthread_mutex_consistent(&mutex);
-            }
-            pthread_mutex_unlock(&mutex);
             return;
         };
 
@@ -768,30 +748,37 @@ class NotifiedQueue{
 
             int64_t nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
             struct timespec ts;
-
             clock_gettime(CLOCK_MONOTONIC, &ts);
             add_timespec(&ts, nsec);
+            auto current = waitFlag.load(std::memory_order_acquire);
+            while (waitFlag.load(std::memory_order_acquire) == current) {
+                long ret = syscall(SYS_futex,
+                                reinterpret_cast<uint32_t*>(&waitFlag),
+                                FUTEX_WAIT_BITSET,
+                                current,
+                                &ts, 
+                                nullptr, 
+                                FUTEX_BITSET_MATCH_ANY); // Required for bitset wait
 
-            // Make the mutex consistent if previous thread died while holding it.
-            if (pthread_mutex_lock(&mutex) == EOWNERDEAD) {
-                pthread_mutex_consistent(&mutex);
+                if (ret == -1) {
+                    if (errno == ETIMEDOUT || errno == EAGAIN) {
+                        break; 
+                    }
+                }
             }
 
-            // Wait for notify
-            if(pthread_cond_timedwait(&condition,&mutex,&ts) == EOWNERDEAD){
-                // Unlikely to end here because of previous check
-                pthread_mutex_consistent(&mutex);
-            }
-            
-            pthread_mutex_unlock(&mutex);
             return;
         };
 
         void notify(){
-            // Purposefully not holding the mutex
-            pthread_cond_broadcast(&condition);
+            waitFlag.fetch_add(1,std::memory_order_release);
+            syscall(SYS_futex,
+            reinterpret_cast<uint32_t*>(&waitFlag),
+            FUTEX_WAKE,
+            1,
+            nullptr, nullptr, 0);
         };
-
+        
         // Unmap queue's shared memory for the current process
         static bool closeQueueHandle(NotifiedQueue<T>* queue) {
             if (queue) {
@@ -803,21 +790,14 @@ class NotifiedQueue{
             return true;
         }
 
-        // Destroys the mutex and condition_variable
-        void clean() {
-            pthread_cond_destroy(&condition);
-            pthread_mutex_destroy(&mutex);
-        }
-
         // Destructor
         // Purposefully empty
         ~NotifiedQueue(){
         };
 
     private:
-        pthread_mutex_t mutex;
-        pthread_cond_t condition;
-
+        std::atomic<uint32_t> waitFlag{0};
+        
         void add_timespec(struct timespec *ts, int64_t nanoseconds) {
             int64_t total_nsec = static_cast<int64_t>(ts->tv_nsec) + nanoseconds;
             while (total_nsec < 0) {
@@ -830,7 +810,6 @@ class NotifiedQueue{
             }
             ts->tv_nsec = static_cast<long>(total_nsec);
         }
-
 };
 
 // Snippet from "C++ High Performance" book's Lock-free queue
@@ -844,12 +823,12 @@ class LockFreeQueue{
 
     private:
         bool do_push(auto&& t){
-            if(size_.load()==N){
+            if(size_.load(std::memory_order_acquire)==N){
                 return false;
             }
             buffer_[write_pos_] = std::forward<decltype(t)>(t);
             write_pos_ = (write_pos_+1) % N;
-            size_++;
+            size_.fetch_add(1,std::memory_order_release);
             return true;
         }
 
@@ -865,16 +844,17 @@ class LockFreeQueue{
 
         auto pop() -> std::optional<T> {
             auto val = std::optional<T>{};
-            if(size_.load()>0){
+            if(size_.load(std::memory_order_acquire)>0){
                 val = std::move(buffer_[read_pos_]);
                 read_pos_ = (read_pos_ + 1) % N;
-                size_--;
+                size_.fetch_sub(1,std::memory_order_release);
             }
             return val;
         }
 
-        auto size() const noexcept { return size_.load();}
+        auto size() const noexcept { return size_.load(std::memory_order_acquire);}
 };
+
 } // namespace
 
 /*
