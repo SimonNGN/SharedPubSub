@@ -227,7 +227,7 @@ class Publisher {
             int listIndex = topic->subscriberListIndex;
             int queueCount = subscriberQueueCount;
             if(queueCount<listIndex){
-                for(int i=subscriberQueueCount;i<topic->subscriberListIndex;++i){
+                for(int i=subscriberQueueCount;i<listIndex;++i){
                     subscriberQueues[i] = SharedMemoryManager<T>::openSharedQueue(topic->subscriberListName[i]);
                     if(subscriberQueues[i]==nullptr){
                         throw std::runtime_error("Failed to open shared memory space for new subscriber");
