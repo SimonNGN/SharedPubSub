@@ -233,7 +233,6 @@ class Publisher {
         void updateSubscriberQueues(){
             int listIndex = topic->subscriberListIndex;
             int queueCount = subscriberQueueCount;
-            std::cerr << queueCount << " " << listIndex << std::endl;
             if(queueCount<listIndex){
                 for(int i=subscriberQueueCount;i<listIndex;++i){
                     subscriberQueues[i] = SharedMemoryManager<T>::openSharedQueue(topic->subscriberListName[i]);
@@ -790,7 +789,7 @@ class NotifiedQueue{
             syscall(SYS_futex,
             reinterpret_cast<uint32_t*>(&waitFlag),
             FUTEX_WAKE,
-            1,
+            INT_MAX,
             nullptr, nullptr, 0);
         };
         
