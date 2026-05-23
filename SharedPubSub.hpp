@@ -33,6 +33,7 @@
 #include <sys/syscall.h>
 #include <type_traits>
 #include <cerrno>
+#include <thread>
 
 #ifndef FUTEX_BITSET_MATCH_ANY
 #define FUTEX_BITSET_MATCH_ANY 0xffffffff
