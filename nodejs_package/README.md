@@ -199,7 +199,6 @@ YOU CAN IMPLEMENT YOUR OWN by changing the source code.
  - Each direct variables, refered to as `property` in javascript, needs a getter and a setter function.
  - Each function needs to refer to the shared pointer to properly work on the internal C++ object.
 ## Things to watch out for
-- The order in which the publisher and subscriber are created is not important, but if it is the FIRST time the shared memory is created, they cannot be created at the same time. Otherwise, there might be a race condition on the shared memory and the Topic object could be created twice, possibly causing the subscriberIndex to be 0 even though there is 1 subscriber. The recommended approach is to start one process first and make it a dependency for the other.
 - There is a maximum number of values in a queue (which you can change). When the queue is full, the publisher will not push to it anymore. The subscriber needs to be able to consume the values faster than they are being published.
 - All the data created in shared memory (/dev/shm) WILL PERSIST. The library does not destroy or clean the data, on purpose. That way, the publisher and subscriber can exit and come back at will and the data will still be valid. You have to manually handle cleaning if you want to.
 ## Wish list
