@@ -289,7 +289,9 @@ class Subscriber {
         }
 
         bool clearQueue(){
-            notifiedQueue->clearQueue();
+            if(notifiedQueue!=nullptr){
+                notifiedQueue->clearQueue();
+            }
             return true;
         }
 
@@ -371,7 +373,7 @@ class Topic{
         // Throws if name size is greater than nameMax
         Topic(std::string name){
 
-            if(name.size()>nameMax){
+            if(name.size()>=nameMax){
                 throw std::runtime_error("Topic name must be inferior to " + std::to_string(nameMax));
             }
             snprintf(this->name,sizeof(this->name),"%s",name.c_str()); 
@@ -382,6 +384,7 @@ class Topic{
             pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED); // Enable inter-process sharing
             pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
             pthread_mutex_init(&m, &attr);
+            pthread_mutexattr_destroy(&attr);
         }
 
         // Subscribes to the topic by creating a NotifiedQueue in shared memory
