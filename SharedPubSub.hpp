@@ -412,8 +412,13 @@ class Topic{
             }
 
             // Handle name size
-            if(subscriberListIndex>subscriberListMax || name.size()>=nameMax){
-                std::cerr << "Subscriber list is full or name is too long." << std::endl;
+            if(name.size()>=nameMax){
+                std::cerr << "Name is too long." << std::endl;
+                pthread_mutex_unlock(&m);
+                return nullptr;
+            }
+            if(subscriberListIndex>=subscriberListMax){
+                std::cerr << "Subscriber list is full" << std::endl;
                 pthread_mutex_unlock(&m);
                 return nullptr;
             }
