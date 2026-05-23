@@ -215,6 +215,13 @@ class Publisher {
             }
         }
 
+
+        // Delete copy/move/assign
+        Publisher(const Publisher&) = delete;
+        Publisher& operator=(const Publisher&) = delete;
+        Publisher(Publisher&&) = delete;
+        Publisher& operator=(Publisher&&) = delete;
+
     private:
         Topic<T>* topic = nullptr;
         std::string topicName;
@@ -345,6 +352,12 @@ class Subscriber {
                 Topic<T>::closeTopicHandle(topic);
             }
         }
+
+        // Delete copy/move/assign
+        Subscriber(const Subscriber&) = delete;
+        Subscriber& operator=(const Subscriber&) = delete;
+        Subscriber(Subscriber&&) = delete;
+        Subscriber& operator=(Subscriber&&) = delete;
 
     private:
         Topic<T>* topic = nullptr;
@@ -565,39 +578,11 @@ class SharedMemoryManager{
                 }
                 else if(errno == EEXIST){
                     // Lost a creation race condition
-                    // open and wait ftruncate to finish
-                    struct stat shmStat;
-                    auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-
                     // Try to reopen the topic as read
                     shmFd = shm_open(topicName.c_str(), O_RDWR, 0666);
                     if(shmFd==-1){
                         perror("shm_open");
                         return nullptr;
-                    }
-
-                    while (true) {
-                        if (fstat(shmFd, &shmStat) == -1) {
-                            perror("fstat");
-                            close(shmFd);
-                            return nullptr;
-                        }
-                        
-                        // If truncate has finished
-                        if (shmStat.st_size >= sizeof(Topic<T>)) {
-                            break;
-                        }
-
-                        // Check for timeout
-                        if (std::chrono::steady_clock::now() > timeout) {
-                            std::cerr << "Timeout waiting for creator to ftruncate.\n";
-                            close(shmFd);
-                            // Clean up the broken shared memory so the next run can succeed
-                            shm_unlink(topicName.c_str()); 
-                            return nullptr;
-                        }
-
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1)); 
                     }
                 }
                 else{
@@ -605,6 +590,34 @@ class SharedMemoryManager{
                     return nullptr;
                 }
 
+            }
+
+            // wait ftruncate to finish
+            struct stat shmStat;
+            auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+
+            while (true) {
+                if (fstat(shmFd, &shmStat) == -1) {
+                    perror("fstat");
+                    close(shmFd);
+                    return nullptr;
+                }
+                
+                // If truncate has finished
+                if (shmStat.st_size >= sizeof(Topic<T>)) {
+                    break;
+                }
+
+                // Check for timeout
+                if (std::chrono::steady_clock::now() > timeout) {
+                    std::cerr << "Timeout waiting for creator to ftruncate.\n";
+                    close(shmFd);
+                    // Clean up the broken shared memory so the next run can succeed
+                    shm_unlink(topicName.c_str()); 
+                    return nullptr;
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(1)); 
             }
             
             // If it succeeds, map the memory to the object
@@ -616,7 +629,7 @@ class SharedMemoryManager{
             }
             topic = static_cast<Topic<T>*>(pTopic);
 
-            auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            timeout = std::chrono::steady_clock::now() + std::chrono::seconds(2);
             while(topic->ready.load(std::memory_order_acquire) == 0){
                 if(std::chrono::steady_clock::now() > timeout){
                     return nullptr;
