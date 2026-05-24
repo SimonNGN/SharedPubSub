@@ -1,6 +1,6 @@
 {
-  "name": "@simonngn/sharedpubsub",
-  "version": "2.0.0",
+  "name": "sharedpubsub",
+  "version": "2.0.1",
   "description": "Shared memory Publisher and Subscriber library",
   "main": "index.js",
   "files": [
@@ -30,9 +30,7 @@
   "author": "Simon Nguyen",
   "license": "MIT",
   "dependencies": {
-    "node-addon-api": "^7.0.0"
-  },
-  "devDependencies": {
+    "node-addon-api": "^7.0.0",
     "cmake-js": "^8.0.0"
   },
   "bugs": {
